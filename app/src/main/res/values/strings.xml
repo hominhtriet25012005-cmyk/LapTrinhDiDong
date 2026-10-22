@@ -1,0 +1,313 @@
+<resources>
+    <string name="app_name">UniSchedule</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_home">Trang chủ</string>
+    <string name="nav_timetable">Lịch học</string>
+    <string name="nav_subjects">Môn học</string>
+    <string name="nav_settings">Cài đặt</string>
+
+    <!-- Home Screen -->
+    <string name="default_date">Thứ Hai, 16 tháng 3</string>
+    <string name="greeting_user">Xin chào!</string>
+    <string name="default_semester">Chưa có học kỳ hiện tại</string>
+    <string name="next_class_label">MÔN HỌC TIẾP THEO</string>
+    <string name="time_remaining_badge">Sau 25 phút</string>
+    <string name="see_detail">Xem chi tiết</string>
+    <string name="stat_classes">Buổi hôm nay</string>
+    <string name="stat_today">Giờ hôm nay</string>
+    <string name="stat_subjects">Môn học</string>
+    <string name="stat_classes_count">3</string>
+    <string name="stat_hours_today">6 giờ</string>
+    <string name="stat_subjects_count">4</string>
+    <string name="home_no_current_semester">Chưa có học kỳ hiện tại</string>
+    <string name="home_stat_pending">—</string>
+    <string name="home_loading_schedule">Đang tải thời khóa biểu…</string>
+    <string name="home_schedule_load_error">Không thể tải thời khóa biểu. Hãy thử mở lại Trang chủ.</string>
+    <string name="home_today_empty">Hôm nay chưa có buổi học.</string>
+    <string name="home_free_time_title">Khoảng trống giữa các buổi hôm nay</string>
+    <string name="home_free_time_not_enough">Cần ít nhất hai buổi học để tính khoảng trống.</string>
+    <string name="home_free_time_none">Không có khoảng trống giữa các buổi đã xếp.</string>
+    <string name="home_week_summary">Tuần này: %1$d buổi · %2$s</string>
+    <string name="home_free_time_range">%1$s–%2$s · %3$s</string>
+    <string name="home_free_time_separator"> · </string>
+    <string name="home_current_class_label">ĐANG DIỄN RA</string>
+    <string name="home_today_schedule_label">LỊCH HỌC HÔM NAY</string>
+    <string name="home_no_class_today">Hôm nay chưa có lịch học</string>
+    <string name="home_all_classes_finished">Hôm nay đã kết thúc lịch học</string>
+    <string name="home_remaining_time">Còn %1$s</string>
+    <string name="home_starts_in_minutes">Sau %1$d phút</string>
+    <string name="home_starts_in_hours">Sau %1$d giờ %2$d phút</string>
+    <string name="home_duration_hours_minutes">%1$d giờ %2$d phút</string>
+    <string name="home_duration_hours">%1$d giờ</string>
+    <string name="home_duration_minutes">%1$d phút</string>
+    <string name="home_room_not_set">Chưa có phòng</string>
+    <string name="home_lecturer_not_set">Chưa cập nhật giảng viên</string>
+    <string name="section_today_schedule">Lịch học hôm nay</string>
+    <string name="action_see_all">Xem tất cả</string>
+    <string name="section_quick_access">Truy cập nhanh</string>
+    <string name="quick_add_schedule">Thêm lịch</string>
+    <string name="quick_subjects">Môn học</string>
+    <string name="quick_semesters">Học kỳ</string>
+    <string name="quick_stats">Thống kê</string>
+
+    <!-- Timetable Screen -->
+    <string name="title_timetable">Thời khóa biểu</string>
+    <string name="view_mode_day">Theo ngày</string>
+    <string name="view_mode_week">Theo tuần</string>
+    <string name="view_mode_month">Theo tháng</string>
+    <string name="label_today">Hôm nay</string>
+    <string name="classes_count_format">%1$d buổi học</string>
+    <string name="empty_schedules">Chưa có lịch học trong khoảng thời gian này.</string>
+    <string name="action_add_schedule">+ Thêm lịch</string>
+    <string name="schedule_subject_class_format">%1$s · %2$s</string>
+    <string name="schedule_week_format">Tuần %1$s – %2$s</string>
+    <string name="schedule_month_format">Tháng %1$s</string>
+    <string name="schedule_week_count_format">%1$s (%2$d buổi học)</string>
+    <string name="schedule_month_count_format">%1$s (%2$d buổi học)</string>
+    <string name="schedule_card_subject_class_format">%1$s · %2$s</string>
+    <string name="schedule_card_day_subject_format">%1$s · %2$s</string>
+    <string name="schedule_detail_code_format">%1$s · %2$s</string>
+
+    <!-- Subjects Screen -->
+    <string name="title_subjects">Môn học</string>
+    <string name="search_subject_hint">Tìm tên hoặc mã môn…</string>
+    <string name="filter_current_semester">Học kỳ hiện tại</string>
+    <string name="label_no_current_semester_short">Chưa đặt hiện tại</string>
+    <string name="filter_all_semesters">Tất cả học kỳ</string>
+    <string name="subjects_count_format">%1$d môn học</string>
+    <string name="subjects_empty_count">0 môn học</string>
+    <string name="subject_credits_lecturer_format">%1$d tín chỉ · %2$s</string>
+    <string name="subject_credits_format">%1$d tín chỉ</string>
+    <string name="semester_label_format">%1$s · %2$s</string>
+    <string name="action_add_subject">+ Thêm môn</string>
+
+    <!-- Detail Screen -->
+    <string name="title_schedule_detail">Chi tiết lịch học</string>
+    <string name="title_subject_detail">Chi tiết môn học</string>
+    <string name="label_date">Ngày học</string>
+    <string name="label_time">Thời gian</string>
+    <string name="label_room">Phòng học</string>
+    <string name="label_lecturer">Giảng viên</string>
+    <string name="label_applied_period">Thời gian áp dụng</string>
+    <string name="label_notes">GHI CHÚ</string>
+    <string name="status_normal_title">Lịch học bình thường</string>
+    <string name="status_normal_desc">Không có thay đổi hoặc thông báo hủy.</string>
+    <string name="related_classes">Lớp học phần liên quan</string>
+    <string name="action_delete">Xóa</string>
+    <string name="action_edit">Chỉnh sửa</string>
+
+    <!-- Form Screens -->
+    <string name="title_add_schedule">Thêm lịch học</string>
+    <string name="title_edit_schedule">Chỉnh sửa lịch học</string>
+    <string name="title_delete_schedule">Xóa lịch học?</string>
+    <string name="msg_confirm_delete_schedule">Lịch lặp hằng tuần này sẽ bị xóa khỏi thời khóa biểu.</string>
+    <string name="msg_save_schedule_success">Đã lưu lịch học thành công.</string>
+    <string name="msg_delete_schedule_success">Đã xóa lịch học.</string>
+    <string name="error_schedule_not_found">Không tìm thấy lịch học này.</string>
+    <string name="error_schedule_save">Không thể lưu lịch học. Vui lòng thử lại.</string>
+    <string name="error_schedule_conflict">Lịch học bị trùng với một buổi học khác trong cùng khoảng thời gian.</string>
+    <string name="error_schedule_required">Hãy chọn môn, lớp học phần, thứ, giờ và khoảng ngày hợp lệ.</string>
+    <string name="error_schedule_no_subjects">Chưa có môn học. Hãy tạo môn học trước khi thêm lịch.</string>
+    <string name="error_schedule_no_classes">Môn học chưa có lớp học phần. Hãy tạo lớp trước.</string>
+    <string name="field_class_section">Lớp học phần *</string>
+    <string name="field_class_code">Mã lớp học phần *</string>
+    <string name="field_class_lecturer">Giảng viên lớp (tùy chọn)</string>
+    <string name="action_add_class_section">Thêm lớp học phần</string>
+    <string name="action_save_class_section">Lưu lớp</string>
+    <string name="title_add_class_section">Thêm lớp học phần</string>
+    <string name="title_edit_class_section">Chỉnh sửa lớp học phần</string>
+    <string name="title_delete_class_section">Xóa lớp học phần?</string>
+    <string name="msg_confirm_delete_class_section">Xóa lớp này cũng xóa toàn bộ lịch học đã gắn với lớp. Không thể hoàn tác.</string>
+    <string name="error_class_code_required">Vui lòng nhập mã lớp học phần.</string>
+    <string name="error_class_code_duplicate">Mã lớp đã tồn tại trong môn học này.</string>
+    <string name="error_class_section_save">Không thể lưu lớp học phần. Vui lòng thử lại.</string>
+    <string name="msg_save_class_section_success">Đã lưu lớp học phần.</string>
+    <string name="msg_delete_class_section_success">Đã xóa lớp học phần.</string>
+    <string name="class_section_chip_format">%1$s · %2$s</string>
+    <string name="subtitle_weekly_repeat">Lịch lặp hằng tuần</string>
+    <string name="title_add_subject">Thêm môn học</string>
+    <string name="title_edit_subject">Chỉnh sửa môn học</string>
+    <string name="error_subject_not_found">Không tìm thấy môn học này.</string>
+    <string name="error_subject_requires_semester">Hãy tạo và chọn một học kỳ trước khi lưu môn học.</string>
+    <string name="error_subject_duplicate_code">Mã môn đã tồn tại trong học kỳ này.</string>
+    <string name="error_subject_save">Không thể lưu thay đổi. Vui lòng thử lại.</string>
+    <string name="msg_save_subject_success">Đã lưu môn học thành công.</string>
+    <string name="msg_delete_subject_success">Đã xóa môn học.</string>
+    <string name="value_not_set">Chưa cập nhật</string>
+    <string name="value_no_note">Không có ghi chú.</string>
+    <string name="empty_subject_classes">Chưa có lớp học phần liên quan.</string>
+    <string name="related_classes_list_format">Các lớp: %1$s</string>
+    <string name="title_add_semester">Thêm học kỳ</string>
+    <string name="title_edit_semester">Chỉnh sửa học kỳ</string>
+    <string name="title_delete_semester">Xóa học kỳ?</string>
+    <string name="msg_confirm_delete_semester">Thao tác này sẽ xóa học kỳ cùng toàn bộ môn học, lớp và lịch liên quan. Không thể hoàn tác.</string>
+    <string name="msg_save_semester_success">Đã lưu học kỳ thành công</string>
+    <string name="msg_delete_semester_success">Đã xóa học kỳ</string>
+    <string name="error_semester_not_found">Không tìm thấy học kỳ này.</string>
+    <string name="error_semester_write">Không thể lưu thay đổi: %1$s</string>
+    <string name="field_subject">Môn học *</string>
+    <string name="field_day_of_week">Ngày trong tuần *</string>
+    <string name="field_start_time">Bắt đầu *</string>
+    <string name="field_end_time">Kết thúc *</string>
+    <string name="field_room">Phòng học</string>
+    <string name="field_lecturer_optional">Giảng viên (tùy chọn)</string>
+    <string name="field_from_date">Từ ngày *</string>
+    <string name="field_to_date">Đến ngày *</string>
+    <string name="field_subject_name">Tên môn học *</string>
+    <string name="field_subject_code">Mã môn *</string>
+    <string name="field_credits">Số tín chỉ</string>
+    <string name="field_semester">Học kỳ *</string>
+    <string name="field_semester_name">Tên học kỳ *</string>
+    <string name="field_set_current_semester">Đặt làm học kỳ hiện tại</string>
+    <string name="field_set_current_semester_desc">Học kỳ này sẽ được dùng làm mặc định.</string>
+    <string name="field_notes">Ghi chú</string>
+    <string name="action_save_schedule">Lưu lịch học</string>
+    <string name="action_save_subject">Lưu môn học</string>
+    <string name="action_save_semester">Lưu học kỳ</string>
+
+    <!-- Semesters Screen -->
+    <string name="title_semesters">Quản lý học kỳ</string>
+    <string name="empty_semesters">Chưa có học kỳ nào.\nNhấn “+ Thêm học kỳ” để bắt đầu.</string>
+    <string name="action_add_semester">+ Thêm học kỳ</string>
+    <string name="label_current_semester">Hiện tại</string>
+
+    <!-- Stats Screen -->
+    <string name="title_stats">Thống kê học tập</string>
+    <string name="stat_classes_per_week">Buổi / tuần</string>
+    <string name="stat_hours_per_week">Giờ / tuần</string>
+    <string name="chart_classes_by_day">Số buổi học theo ngày</string>
+    <string name="stats_no_semester">Chưa có học kỳ</string>
+    <string name="stats_full_semester_range">Toàn học kỳ</string>
+    <string name="stats_date_range_format">%1$s – %2$s</string>
+    <string name="stats_date_range_from">Từ %1$s</string>
+    <string name="stats_date_range_until">Đến %1$s</string>
+    <string name="stats_no_semester_message">Chưa có học kỳ. Hãy tạo học kỳ để xem thống kê.</string>
+    <string name="stats_no_schedule_message">Học kỳ này chưa có lịch học để thống kê.</string>
+    <string name="stats_semester_volume_title">Khối lượng theo học kỳ</string>
+    <string name="stats_no_semester_volumes">Chưa có dữ liệu học tập để thống kê.</string>
+    <string name="stats_classes_per_week_format">%1$d buổi mỗi tuần</string>
+    <string name="stats_hours_per_week_content_description">%1$s mỗi tuần</string>
+    <string name="stats_day_chart_content_description">%1$s: %2$d buổi mỗi tuần</string>
+    <string name="stats_semester_volume_content_description">%1$s: %2$s</string>
+    <string name="stats_semester_picker_title">Chọn học kỳ thống kê</string>
+    <string name="stats_hours_abbreviation">h</string>
+
+    <string-array name="days_of_week">
+        <item>Thứ Hai</item>
+        <item>Thứ Ba</item>
+        <item>Thứ Tư</item>
+        <item>Thứ Năm</item>
+        <item>Thứ Sáu</item>
+        <item>Thứ Bảy</item>
+        <item>Chủ Nhật</item>
+    </string-array>
+
+    <!-- Search Screen -->
+    <string name="title_search">Tìm kiếm &amp; bộ lọc</string>
+    <string name="search_full_hint">Môn học, mã môn hoặc phòng…</string>
+    <string name="search_all_days">Tất cả</string>
+    <string name="search_room_hint">Ví dụ: A101</string>
+    <string name="search_apply_filters">Áp dụng bộ lọc</string>
+    <string name="search_result_count">%1$d kết quả</string>
+    <string name="search_no_results_title">Không có kết quả</string>
+    <string name="search_no_results_message">Không tìm thấy lịch học phù hợp với bộ lọc.</string>
+    <string name="search_reset_filters">Xóa bộ lọc</string>
+    <string name="filter_panel_title">Bộ lọc</string>
+    <string name="action_clear_all">Xóa tất cả</string>
+    <string name="label_days_of_week">Ngày trong tuần</string>
+
+    <!-- Settings Screen -->
+    <string name="title_settings">Cài đặt</string>
+    <string name="settings_group_preferences">Tùy chọn</string>
+    <string name="settings_dark_mode">Giao diện tối</string>
+    <string name="settings_dark_mode_active">Đang sử dụng chế độ tối</string>
+    <string name="settings_light_mode_active">Đang sử dụng chế độ sáng</string>
+    <string name="settings_theme">Chủ đề</string>
+    <string name="settings_theme_desc">Sáng · Theo lựa chọn của bạn</string>
+    <string name="settings_start_day">Ngày đầu tuần</string>
+    <string name="settings_start_day_val">Thứ Hai</string>
+    <string name="settings_group_data">Dữ liệu &amp; tiện ích</string>
+    <string name="settings_notifications">Cài đặt thông báo</string>
+    <string name="settings_stats">Thống kê học tập</string>
+    <string name="settings_export">Xuất dữ liệu</string>
+    <string name="settings_backup">Sao lưu &amp; khôi phục</string>
+    <string name="settings_states">Trạng thái giao diện</string>
+    <string name="settings_group_app">Ứng dụng</string>
+    <string name="settings_version">Phiên bản 1.0.0 (Build 1)</string>
+
+    <!-- Notifications Screen -->
+    <string name="title_notifications">Cài đặt thông báo</string>
+    <string name="notification_permission_granted">Đã cấp quyền thông báo</string>
+    <string name="notification_permission_granted_desc">UniSchedule có thể gửi lời nhắc.</string>
+    <string name="notification_permission_denied">Chưa cấp quyền thông báo</string>
+    <string name="notification_permission_denied_desc">Cấp quyền để nhận lời nhắc lịch học.</string>
+    <string name="notification_disabled">Thông báo đang bị tắt</string>
+    <string name="notification_disabled_desc">Kiểm tra quyền ứng dụng và kênh nhắc lịch trong cài đặt Android.</string>
+    <string name="action_grant_permission">Cấp quyền</string>
+    <string name="action_disable_permission">Tắt</string>
+    <string name="action_open_notification_settings">Cài đặt</string>
+    <string name="notification_channel_description">Thông báo nhắc trước giờ học và tóm tắt lịch hằng ngày.</string>
+    <string name="notification_reminder_title">%1$s · Lớp %2$s</string>
+    <string name="notification_reminder_body">Buổi học bắt đầu lúc %1$s. Phòng: %2$s.</string>
+    <string name="notification_room_unknown">chưa cập nhật</string>
+    <string name="notification_summary_title">Lịch học hôm nay</string>
+    <string name="notification_summary_empty">Hôm nay bạn không có buổi học.</string>
+    <string name="notification_summary_body">Hôm nay có %1$d buổi. Buổi đầu: %2$s — %3$s, lớp %4$s.</string>
+    <string name="notification_reminders_enabled">Đã bật nhắc trước 24 giờ cho các lịch học.</string>
+    <string name="notification_reminders_disabled">Đã tắt nhắc trước 24 giờ.</string>
+    <string name="notification_summary_enabled">Đã bật tóm tắt lịch hằng ngày.</string>
+    <string name="notification_summary_disabled">Đã tắt tóm tắt lịch hằng ngày.</string>
+    <string name="notif_reminder_24h">Nhắc trước 24 giờ</string>
+    <string name="notif_reminder_24h_desc">Nhận thông báo một ngày trước buổi học.</string>
+    <string name="notif_daily_summary">Tóm tắt lịch hằng ngày</string>
+    <string name="notif_daily_summary_desc">Xem các buổi học trong ngày vào buổi sáng.</string>
+    <string name="notif_summary_time">Giờ gửi tóm tắt</string>
+    <string name="notif_summary_time_val">06:00</string>
+
+    <!-- Export Screen -->
+    <string name="title_export">Xuất dữ liệu</string>
+    <string name="export_select_content">Chọn nội dung</string>
+    <string name="export_pdf_schedule">Thời khóa biểu (PDF)</string>
+    <string name="export_excel_schedule">Thời khóa biểu (Excel .xlsx)</string>
+    <string name="export_excel_subjects">Danh sách môn học (Excel .xlsx)</string>
+    <string name="export_scope_semester">Phạm vi học kỳ</string>
+    <string name="export_select_semester">Chọn học kỳ</string>
+    <string name="export_select_scope">Chọn phạm vi</string>
+    <string name="export_preview_no_semester">Chưa có học kỳ</string>
+    <string name="export_preview_no_dates">Chưa có ngày áp dụng</string>
+    <string name="export_preview_empty">Chưa có lịch học trong phạm vi này.</string>
+    <string name="export_preview_loading">Đang tải lịch học từ thiết bị…</string>
+    <string name="export_preview_load_failed">Không thể tải dữ liệu lịch học.</string>
+    <string name="export_preview_too_many">Phạm vi có quá nhiều buổi học để xem trước an toàn.</string>
+    <string name="export_preview_summary">%1$d buổi học · %2$d môn học</string>
+    <string name="export_excel_unavailable">Xuất Excel chưa được triển khai; hiện có thể xuất thời khóa biểu PDF.</string>
+    <string name="export_working">Đang tạo PDF…</string>
+    <string name="export_saved">Đã lưu thời khóa biểu PDF.</string>
+    <string name="export_failed">Không thể tạo PDF. Hãy thử chọn vị trí lưu khác.</string>
+    <string name="action_export">Xuất tệp</string>
+
+    <!-- Backup Screen -->
+    <string name="title_backup">Sao lưu &amp; khôi phục</string>
+    <string name="backup_local_title">Dữ liệu được lưu trên thiết bị</string>
+    <string name="backup_local_desc">Sao lưu định kỳ để tránh mất học kỳ, môn học và thời khóa biểu khi đổi máy.</string>
+    <string name="backup_create_title">Sao lưu dữ liệu</string>
+    <string name="backup_create_desc">Tạo một tệp sao lưu UniSchedule.</string>
+    <string name="backup_last_time">Lần gần nhất: 15/03/2026 · 21:30</string>
+    <string name="action_backup_now">Sao lưu</string>
+    <string name="restore_title">Khôi phục dữ liệu</string>
+    <string name="restore_desc">Chọn tệp sao lưu từ thiết bị.</string>
+    <string name="action_choose_file">Chọn tệp</string>
+    <string name="restore_warning_banner">Khôi phục sẽ thay thế toàn bộ dữ liệu hiện có. Hãy sao lưu trước khi tiếp tục.</string>
+
+    <!-- Dialogs -->
+    <string name="title_delete_subject">Xóa môn học?</string>
+    <string name="msg_confirm_delete_subject">Thao tác này sẽ xóa môn học và tất cả các buổi học liên quan.</string>
+    <string name="field_lecturer">Giảng viên</string>
+    <string name="dialog_confirm_delete_title">Xác nhận xóa</string>
+    <string name="dialog_confirm_delete_desc">Thao tác này không thể hoàn tác. Dữ liệu liên quan sẽ bị xóa vĩnh viễn.</string>
+    <string name="dialog_confirm_restore_title">Khôi phục dữ liệu?</string>
+    <string name="dialog_confirm_restore_desc">Dữ liệu hiện tại sẽ bị thay thế bằng tệp sao lưu đã chọn.</string>
+    <string name="action_cancel">Hủy</string>
+    <string name="action_confirm">Đồng ý</string>
+</resources>

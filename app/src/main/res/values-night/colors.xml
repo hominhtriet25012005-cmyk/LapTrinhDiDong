@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backgrounds & Surfaces for Dark Theme -->
+    <color name="bg_light">#0B1220</color>
+    <color name="surface_light">#111C2E</color>
+    <color name="surface_2_light">#172337</color>
+    <color name="border_light">#263449</color>
+
+    <!-- Typography for Dark Theme -->
+    <color name="text_primary">#F1F5F9</color>
+    <color name="text_secondary">#94A3B8</color>
+    <color name="text_tertiary">#64748B</color>
+
+    <!-- Category / Accent Tags in Dark Theme -->
+    <color name="tag_blue_bg">#1E293B</color>
+    <color name="tag_green_bg">#143224</color>
+    <color name="tag_amber_bg">#342211</color>
+    <color name="tag_violet_bg">#281E3D</color>
+    <color name="tag_red_bg">#34171A</color>
+</resources>
