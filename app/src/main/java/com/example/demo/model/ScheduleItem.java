@@ -3,6 +3,12 @@ package com.example.demo.model;
 import java.io.Serializable;
 
 public class ScheduleItem implements Serializable {
+    /** Same values as ClassOccurrence.STATUS_*. */
+    public static final int STATUS_REGULAR = 0;
+    public static final int STATUS_MODIFIED = 1;
+    public static final int STATUS_MAKEUP = 2;
+    public static final int STATUS_CANCELLED = 3;
+
     private String id;
     private String subjectCode;
     private String subjectName;
@@ -15,6 +21,10 @@ public class ScheduleItem implements Serializable {
     private String semester;
     private String note;
     private String appliedPeriod;
+    private int status = STATUS_REGULAR;
+    private String changeNote;
+    private long epochDay;
+    private long exceptionId;
 
     public ScheduleItem() {}
 
@@ -70,4 +80,16 @@ public class ScheduleItem implements Serializable {
 
     public String getAppliedPeriod() { return appliedPeriod; }
     public void setAppliedPeriod(String appliedPeriod) { this.appliedPeriod = appliedPeriod; }
+
+    public int getStatus() { return status; }
+    public void setStatus(int status) { this.status = status; }
+
+    public String getChangeNote() { return changeNote; }
+    public void setChangeNote(String changeNote) { this.changeNote = changeNote; }
+
+    public long getEpochDay() { return epochDay; }
+    public void setEpochDay(long epochDay) { this.epochDay = epochDay; }
+
+    public long getExceptionId() { return exceptionId; }
+    public void setExceptionId(long exceptionId) { this.exceptionId = exceptionId; }
 }

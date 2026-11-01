@@ -147,9 +147,20 @@
                     android:textSize="13sp"
                     tools:text="ThS. Trần Minh Khoa" />
             </LinearLayout>
+            <TextView
+                android:id="@+id/tvChangeStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="Đã đổi lịch · Đổi phòng"
+                tools:visibility="visible" />
         </LinearLayout>
 
         <!-- Right Chevron -->
+
         <ImageView
             android:id="@+id/ivChevron"
             android:layout_width="20dp"

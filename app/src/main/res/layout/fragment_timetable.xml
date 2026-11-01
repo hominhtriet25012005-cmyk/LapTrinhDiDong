@@ -220,6 +220,24 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
+    <!-- Floating Action Button: + Thêm buổi bù -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fabAddMakeup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="80dp"
+        android:text="@string/action_add_makeup"
+        android:textColor="@color/primary"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:backgroundTint="@color/surface_light"
+        app:cornerRadius="24dp"
+        app:elevation="4dp"
+        app:icon="@drawable/ic_plus"
+        app:iconTint="@color/primary" />
+
     <!-- Floating Action Button: + Thêm lịch -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/fabAddSchedule"

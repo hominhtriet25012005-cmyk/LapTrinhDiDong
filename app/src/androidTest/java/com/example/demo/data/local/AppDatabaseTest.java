@@ -174,24 +174,85 @@ public class AppDatabaseTest {
         assertEquals("CS101", currentSemesterMatches.get(0).code);
     }
 
+
     @Test
     public void deletingSemesterCascadesThroughSubjectsClassesAndSchedules() {
-        SemesterEntity semester = createSemester("Fall", "2026-2027", true);
+        SemesterEntity semester =
+                createSemester("Fall", "2026-2027", true);
+
         long semesterId = database.semesterDao().insert(semester);
-        long subjectId = database.subjectDao().insert(createSubject(semesterId, "CS101", "Algorithms"));
+        semester.id = semesterId;
+        long subjectId = database.subjectDao().insert(
+                createSubject(semesterId, "CS101", "Algorithms")
+        );
 
-        ClassSectionEntity section = new ClassSectionEntity(subjectId, "CS101-01", "Dr. Nguyen", "Lecture");
+        ClassSectionEntity section = new ClassSectionEntity(
+                subjectId, "CS101-01", "Dr. Nguyen", "Lecture"
+        );
+
         long sectionId = database.classSectionDao().insert(section);
-        database.scheduleDao().insert(new ScheduleEntity(
-                sectionId, 1, 450, 570, "Room A101", 20_000L, 20_100L, "Bring laptop"));
 
-        assertEquals(1, database.scheduleDao().getAll().size());
-        database.semesterDao().delete(semester);
+        android.database.Cursor cursor = database
+                .getOpenHelper()
+                .getWritableDatabase()
+                .query("PRAGMA foreign_key_list(subjects)");
 
-        assertTrue(database.subjectDao().getAll().isEmpty());
-        assertTrue(database.classSectionDao().getAll().isEmpty());
-        assertTrue(database.scheduleDao().getAll().isEmpty());
+        try {
+            while (cursor.moveToNext()) {
+                android.util.Log.d(
+                        "FK_CHECK",
+                        "parent=" + cursor.getString(2)
+                                + ", childColumn=" + cursor.getString(3)
+                                + ", parentColumn=" + cursor.getString(4)
+                                + ", onDelete=" + cursor.getString(6)
+                );
+            }
+        } finally {
+            cursor.close();
+        }
+
+
+        database.scheduleDao().insert(
+                new ScheduleEntity(
+                        sectionId, 1, 450, 570,
+                        "Room A101", 20_000L, 20_100L,
+                        "Bring laptop"
+                )
+        );
+
+        assertEquals(
+                "Phải có 1 lịch trước khi xóa học kỳ",
+                1,
+                database.scheduleDao().getAll().size()
+        );
+
+        int deletedRows = database.semesterDao().delete(semester);
+
+        assertEquals(
+                "Học kỳ chưa được xóa",
+                1,
+                deletedRows
+        );
+
+        assertEquals(
+                "Subject chưa bị xóa dây chuyền",
+                0,
+                database.subjectDao().getAll().size()
+        );
+
+        assertEquals(
+                "ClassSection chưa bị xóa dây chuyền",
+                0,
+                database.classSectionDao().getAll().size()
+        );
+
+        assertEquals(
+                "Schedule chưa bị xóa dây chuyền",
+                0,
+                database.scheduleDao().getAll().size()
+        );
     }
+
 
     @Test
     public void scheduleDetailsProjectionJoinsScheduleClassSubjectAndSemester() {

@@ -1,6 +1,7 @@
 package com.example.demo.adapter;
 
 import android.content.Context;
+import android.graphics.Paint;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -91,11 +92,61 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             holder.tvSubjectTag.setTextColor(ContextCompat.getColor(ctx, R.color.tag_blue_text));
         }
 
+        bindStatus(holder, item, ctx);
+
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onItemClick(item);
             }
         });
+    }
+
+    /** Shows "Đã đổi lịch", "Buổi học bù" or "Đã hủy" and strikes through cancelled sessions. */
+    private void bindStatus(ViewHolder holder, ScheduleItem item, Context ctx) {
+        int status = item.getStatus();
+        int labelRes;
+        int colorRes;
+        if (status == ScheduleItem.STATUS_MODIFIED) {
+            labelRes = R.string.schedule_status_modified;
+            colorRes = R.color.tag_amber_text;
+        } else if (status == ScheduleItem.STATUS_MAKEUP) {
+            labelRes = R.string.schedule_status_makeup;
+            colorRes = R.color.tag_green_text;
+        } else if (status == ScheduleItem.STATUS_CANCELLED) {
+            labelRes = R.string.schedule_status_cancelled;
+            colorRes = R.color.tag_red_text;
+        } else {
+            labelRes = 0;
+            colorRes = 0;
+        }
+
+        if (labelRes == 0) {
+            holder.tvChangeStatus.setVisibility(View.GONE);
+        } else {
+            String text = ctx.getString(labelRes);
+            String note = item.getChangeNote();
+            if (note != null && !note.trim().isEmpty()) {
+                text = ctx.getString(R.string.schedule_status_with_note, text, note.trim());
+            }
+            holder.tvChangeStatus.setText(text);
+            holder.tvChangeStatus.setTextColor(ContextCompat.getColor(ctx, colorRes));
+            holder.tvChangeStatus.setVisibility(View.VISIBLE);
+        }
+
+        boolean cancelled = status == ScheduleItem.STATUS_CANCELLED;
+        applyStrikeThrough(holder.tvStartTime, cancelled);
+        applyStrikeThrough(holder.tvEndTime, cancelled);
+        applyStrikeThrough(holder.tvSubjectTag, cancelled);
+        applyStrikeThrough(holder.tvRoom, cancelled);
+        applyStrikeThrough(holder.tvLecturer, cancelled);
+        holder.itemView.setAlpha(cancelled ? 0.6f : 1f);
+    }
+
+    private static void applyStrikeThrough(TextView view, boolean enabled) {
+        int flags = view.getPaintFlags();
+        view.setPaintFlags(enabled
+                ? flags | Paint.STRIKE_THRU_TEXT_FLAG
+                : flags & ~Paint.STRIKE_THRU_TEXT_FLAG);
     }
 
     @Override
@@ -110,6 +161,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
         final TextView tvSubjectTag;
         final TextView tvRoom;
         final TextView tvLecturer;
+        final TextView tvChangeStatus;
         final ImageView ivChevron;
 
         ViewHolder(@NonNull View itemView) {
@@ -120,6 +172,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             tvSubjectTag = itemView.findViewById(R.id.tvSubjectTag);
             tvRoom = itemView.findViewById(R.id.tvRoom);
             tvLecturer = itemView.findViewById(R.id.tvLecturer);
+            tvChangeStatus = itemView.findViewById(R.id.tvChangeStatus);
             ivChevron = itemView.findViewById(R.id.ivChevron);
         }
     }

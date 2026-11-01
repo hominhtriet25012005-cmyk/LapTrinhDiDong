@@ -7,6 +7,7 @@ import androidx.lifecycle.LiveData;
 import com.example.demo.data.local.AppDatabase;
 import com.example.demo.data.local.entity.ClassSectionEntity;
 import com.example.demo.data.local.entity.ScheduleEntity;
+import com.example.demo.data.local.entity.ScheduleExceptionEntity;
 import com.example.demo.data.local.entity.SemesterEntity;
 import com.example.demo.data.local.entity.SubjectEntity;
 import com.example.demo.data.local.projection.ScheduleDetails;
@@ -15,6 +16,7 @@ import com.example.demo.data.local.relation.ClassSectionWithSchedules;
 import com.example.demo.data.local.relation.SemesterWithSubjects;
 import com.example.demo.data.local.relation.SubjectWithClassSections;
 import com.example.demo.data.validation.ScheduleValidator;
+import com.example.demo.data.schedule.ScheduleSnapshot;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -31,10 +33,12 @@ public final class AppRepository {
     private final AppDatabase database;
     private final ExecutorService writeExecutor;
     private final SchedulePersistence schedulePersistence;
+    private final ScheduleExceptionPersistence exceptionPersistence;
 
     private AppRepository(Context context) {
         database = AppDatabase.getInstance(context);
         schedulePersistence = new SchedulePersistence(database);
+        exceptionPersistence = new ScheduleExceptionPersistence(database);
         writeExecutor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "personal-schedule-db");
             thread.setDaemon(true);
@@ -182,7 +186,7 @@ public final class AppRepository {
     }
 
     public LiveData<List<ScheduleDetails>> searchScheduleDetails(String query, long semesterId,
-                                                                  int dayOfWeek, String roomQuery) {
+                                                                 int dayOfWeek, String roomQuery) {
         return database.scheduleDao().searchDetails(
                 query == null ? "" : query.trim(),
                 semesterId,
@@ -219,6 +223,34 @@ public final class AppRepository {
         return writeExecutor.submit(() -> database.scheduleDao().delete(schedule));
     }
 
+    /** Saves a cancel, modify or makeup exception; replaces an older one for the same occurrence. */
+    public Future<Long> saveScheduleException(ScheduleExceptionEntity exception) {
+        return writeExecutor.submit(() -> exceptionPersistence.save(exception));
+    }
+
+    public Future<Integer> deleteScheduleException(long exceptionId) {
+        return writeExecutor.submit(() -> exceptionPersistence.delete(exceptionId));
+    }
+
+    public Future<List<ScheduleExceptionEntity>> getAllScheduleExceptions() {
+        return writeExecutor.submit(() -> database.scheduleExceptionDao().getAll());
+    }
+
+    public LiveData<List<ScheduleExceptionEntity>> observeAllScheduleExceptions() {
+        return database.scheduleExceptionDao().observeAll();
+    }
+
+    /** Loads schedules, exceptions and class sections together for ScheduleResolver. */
+    public Future<ScheduleSnapshot> getScheduleSnapshot() {
+        return writeExecutor.submit(() -> {
+            ScheduleSnapshot[] snapshot = new ScheduleSnapshot[1];
+            database.runInTransaction(() -> snapshot[0] = new ScheduleSnapshot(
+                    database.scheduleDao().getAllDetails(),
+                    database.scheduleExceptionDao().getAll(),
+                    database.scheduleExceptionDao().getAllClassSectionDetails()));
+            return snapshot[0];
+        });
+    }
     private static void validateSchedule(ScheduleEntity schedule) {
         if (schedule == null) {
             throw new IllegalArgumentException("Schedule must not be null.");

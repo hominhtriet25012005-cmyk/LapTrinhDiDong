@@ -109,6 +109,32 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    public void openOccurrence(ScheduleItem item) {
+        if (item == null) {
+            return;
+        }
+        Intent intent = new Intent(this, com.example.demo.ui.occurrence.OccurrenceActivity.class);
+        try {
+            intent.putExtra(com.example.demo.ui.occurrence.OccurrenceActivity.EXTRA_SCHEDULE_ID,
+                    Long.parseLong(item.getId()));
+        } catch (NumberFormatException exception) {
+            Toast.makeText(this, R.string.error_schedule_not_found, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        intent.putExtra(com.example.demo.ui.occurrence.OccurrenceActivity.EXTRA_EXCEPTION_ID,
+                item.getExceptionId());
+        intent.putExtra(com.example.demo.ui.occurrence.OccurrenceActivity.EXTRA_EPOCH_DAY,
+                item.getEpochDay());
+        startActivity(intent);
+    }
+
+    public void openNewMakeup(long epochDay) {
+        Intent intent = new Intent(this, com.example.demo.ui.occurrence.OccurrenceActivity.class);
+        intent.putExtra(com.example.demo.ui.occurrence.OccurrenceActivity.EXTRA_NEW_MAKEUP, true);
+        intent.putExtra(com.example.demo.ui.occurrence.OccurrenceActivity.EXTRA_EPOCH_DAY, epochDay);
+        startActivity(intent);
+    }
+
     public void openAddSchedule() {
         launchSubScreen("com.example.demo.ui.form.ScheduleFormActivity", null, null);
     }
@@ -147,9 +173,6 @@ public class MainActivity extends AppCompatActivity {
         launchSubScreen("com.example.demo.ui.backup.BackupActivity", null, null);
     }
 
-    public void openStates() {
-        launchSubScreen("com.example.demo.ui.states.StatesActivity", null, null);
-    }
 
     private void launchSubScreen(String className, String extraKey, java.io.Serializable extraValue) {
         try {

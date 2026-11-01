@@ -6,6 +6,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
+import com.example.demo.data.settings.WeekSettings;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -17,8 +19,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.demo.MainActivity;
 import com.example.demo.R;
 import com.example.demo.adapter.ScheduleAdapter;
-import com.example.demo.data.local.projection.ScheduleDetails;
 import com.example.demo.data.repository.AppRepository;
+import com.example.demo.data.schedule.ClassOccurrence;
+import com.example.demo.data.schedule.ScheduleResolver;
+import com.example.demo.data.schedule.ScheduleSnapshot;
 import com.example.demo.model.ScheduleItem;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
@@ -50,7 +54,7 @@ public class TimetableFragment extends Fragment {
     private RecyclerView rvTimetableClasses;
     private ScheduleAdapter scheduleAdapter;
     private AppRepository repository;
-    private List<ScheduleDetails> allSchedules = new ArrayList<>();
+    private ScheduleSnapshot snapshot = new ScheduleSnapshot(null, null, null);
     private LocalDate selectedDate = LocalDate.now();
     private int viewMode = MODE_DAY;
     private int loadGeneration;
@@ -76,15 +80,7 @@ public class TimetableFragment extends Fragment {
         tvEmptySchedule = view.findViewById(R.id.tvEmptySchedule);
         rvTimetableClasses = view.findViewById(R.id.rvTimetableClasses);
 
-        scheduleAdapter = new ScheduleAdapter(new ArrayList<>(), item -> {
-            if (getActivity() instanceof MainActivity) {
-                try {
-                    ((MainActivity) getActivity()).openScheduleDetail(Long.parseLong(item.getId()));
-                } catch (NumberFormatException ignored) {
-                    // Rows are generated only from positive Room schedule IDs.
-                }
-            }
-        });
+        scheduleAdapter = new ScheduleAdapter(new ArrayList<>(), this::onScheduleItemClick);
         rvTimetableClasses.setLayoutManager(new LinearLayoutManager(getContext()));
         rvTimetableClasses.setAdapter(scheduleAdapter);
 
@@ -107,6 +103,11 @@ public class TimetableFragment extends Fragment {
                 ((MainActivity) getActivity()).openAddSchedule();
             }
         });
+        view.findViewById(R.id.fabAddMakeup).setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).openNewMakeup(selectedDate.toEpochDay());
+            }
+        });
         updateDateDisplay();
         resetToggleButtonsStyle();
         styleActiveButton(btnModeDay);
@@ -116,7 +117,13 @@ public class TimetableFragment extends Fragment {
     public void onResume() {
         super.onResume();
         if (repository != null && rvTimetableClasses != null) {
-            loadScheduleDetails();
+            loadSnapshot();
+        }
+    }
+
+    private void onScheduleItemClick(ScheduleItem item) {
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).openOccurrence(item);
         }
     }
 
@@ -159,7 +166,7 @@ public class TimetableFragment extends Fragment {
             tvSelectedDate.setText(selectedDate.format(
                     DateTimeFormatter.ofPattern("EEEE, d 'tháng' M 'năm' yyyy", vietnamese)));
         } else if (viewMode == MODE_WEEK) {
-            LocalDate weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            LocalDate weekStart = WeekSettings.weekStart(selectedDate);
             LocalDate weekEnd = weekStart.plusDays(6);
             String start = weekStart.format(DateTimeFormatter.ofPattern("dd/MM", vietnamese));
             String end = weekEnd.format(DateTimeFormatter.ofPattern("dd/MM/yyyy", vietnamese));
@@ -171,34 +178,31 @@ public class TimetableFragment extends Fragment {
         tvTodayLabel.setVisibility(selectedDate.equals(LocalDate.now()) ? View.VISIBLE : View.GONE);
     }
 
-    private void loadScheduleDetails() {
+    private void loadSnapshot() {
         int generation = ++loadGeneration;
         MainActivity activity = getActivity() instanceof MainActivity ? (MainActivity) getActivity() : null;
         if (activity == null) {
             return;
         }
-        Future<List<ScheduleDetails>> load = repository.getAllScheduleDetails();
+        Future<ScheduleSnapshot> load = repository.getScheduleSnapshot();
         new Thread(() -> {
             try {
-                List<ScheduleDetails> result = load.get();
-                activity.runOnUiThread(() -> {
-                    if (!isAdded()) {
-                        return;
-                    }
-                    if (generation != loadGeneration) {
-                        return;
-                    }
-                    allSchedules = result == null ? new ArrayList<>() : result;
-                    renderSchedules();
-                });
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-            } catch (ExecutionException ignored) {
+                ScheduleSnapshot result = load.get();
                 activity.runOnUiThread(() -> {
                     if (!isAdded() || generation != loadGeneration) {
                         return;
                     }
-                    allSchedules = new ArrayList<>();
+                    snapshot = result == null ? new ScheduleSnapshot(null, null, null) : result;
+                    renderSchedules();
+                });
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException | RuntimeException ignored) {
+                activity.runOnUiThread(() -> {
+                    if (!isAdded() || generation != loadGeneration) {
+                        return;
+                    }
+                    snapshot = new ScheduleSnapshot(null, null, null);
                     renderSchedules();
                 });
             }
@@ -215,74 +219,71 @@ public class TimetableFragment extends Fragment {
             periodStart = selectedDate;
             periodEnd = selectedDate;
         } else if (viewMode == MODE_WEEK) {
-            periodStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            periodStart = WeekSettings.weekStart(selectedDate);
             periodEnd = periodStart.plusDays(6);
         } else {
             periodStart = selectedDate.withDayOfMonth(1);
             periodEnd = selectedDate.withDayOfMonth(selectedDate.lengthOfMonth());
         }
 
+        // Cancelled sessions stay visible (struck through); they are not counted.
+        List<ClassOccurrence> occurrences = ScheduleResolver.resolve(
+                snapshot, periodStart.toEpochDay(), periodEnd.toEpochDay(), true);
         List<ScheduleItem> visibleSchedules = new ArrayList<>();
-        for (ScheduleDetails schedule : allSchedules) {
-            if (hasOccurrence(schedule, periodStart, periodEnd)) {
-                visibleSchedules.add(toScheduleItem(schedule));
+        int activeCount = 0;
+        for (ClassOccurrence occurrence : occurrences) {
+            visibleSchedules.add(toScheduleItem(occurrence));
+            if (!occurrence.isCancelled()) {
+                activeCount++;
             }
         }
         scheduleAdapter.setShowDayLabel(viewMode != MODE_DAY);
         scheduleAdapter.updateData(visibleSchedules);
         if (viewMode == MODE_DAY) {
-            tvClassCountSubtitle.setText(getString(R.string.classes_count_format, visibleSchedules.size()));
+            tvClassCountSubtitle.setText(getString(R.string.classes_count_format, activeCount));
         } else if (viewMode == MODE_WEEK) {
             String week = tvSelectedDate.getText().toString();
             tvClassCountSubtitle.setText(getString(
-                    R.string.schedule_week_count_format, week, visibleSchedules.size()));
+                    R.string.schedule_week_count_format, week, activeCount));
         } else {
             String month = tvSelectedDate.getText().toString();
             tvClassCountSubtitle.setText(getString(
-                    R.string.schedule_month_count_format, month, visibleSchedules.size()));
+                    R.string.schedule_month_count_format, month, activeCount));
         }
         tvEmptySchedule.setVisibility(visibleSchedules.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
-    private static boolean hasOccurrence(ScheduleDetails schedule, LocalDate periodStart, LocalDate periodEnd) {
-        LocalDate first = periodStart.isAfter(LocalDate.ofEpochDay(schedule.validFromEpochDay))
-                ? periodStart : LocalDate.ofEpochDay(schedule.validFromEpochDay);
-        LocalDate last = periodEnd.isBefore(LocalDate.ofEpochDay(schedule.validToEpochDay))
-                ? periodEnd : LocalDate.ofEpochDay(schedule.validToEpochDay);
-        if (first.isAfter(last)) {
-            return false;
-        }
-        for (LocalDate date = first; !date.isAfter(last); date = date.plusDays(1)) {
-            if (date.getDayOfWeek().getValue() == schedule.dayOfWeek) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private ScheduleItem toScheduleItem(ScheduleDetails details) {
+    private ScheduleItem toScheduleItem(ClassOccurrence occurrence) {
         String[] days = getResources().getStringArray(R.array.days_of_week);
-        String semester = details.semesterAcademicYear == null || details.semesterAcademicYear.trim().isEmpty()
-                ? safe(details.semesterName)
-                : getString(R.string.semester_label_format, details.semesterName, details.semesterAcademicYear);
-        String appliedPeriod = LocalDate.ofEpochDay(details.validFromEpochDay)
-                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT))
-                + " – " + LocalDate.ofEpochDay(details.validToEpochDay)
-                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT));
-        return new ScheduleItem(
-                String.valueOf(details.scheduleId),
-                safe(details.classCode),
-                safe(details.subjectName),
-                formatCardTime(details.startMinute),
-                formatCardTime(details.endMinute),
-                safe(details.room),
-                safe(details.lecturer),
-                days[details.dayOfWeek - 1],
-                safe(details.subjectColorKey),
+        LocalDate date = LocalDate.ofEpochDay(occurrence.epochDay);
+        String semester = isBlank(occurrence.semesterAcademicYear)
+                ? safe(occurrence.semesterName)
+                : getString(R.string.semester_label_format,
+                occurrence.semesterName, occurrence.semesterAcademicYear);
+        String dateText = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT));
+        String dayLabel = days[date.getDayOfWeek().getValue() - 1];
+        if (viewMode != MODE_DAY) {
+            // Week and month lists mix several dates, so each row shows its date.
+            dayLabel = dayLabel + " " + date.format(DateTimeFormatter.ofPattern("dd/MM", Locale.ROOT));
+        }
+        ScheduleItem item = new ScheduleItem(
+                String.valueOf(occurrence.scheduleId),
+                safe(occurrence.classCode),
+                safe(occurrence.subjectName),
+                formatCardTime(occurrence.startMinute),
+                formatCardTime(occurrence.endMinute),
+                safe(occurrence.room),
+                safe(occurrence.lecturer),
+                dayLabel,
+                safe(occurrence.subjectColorKey),
                 semester,
-                safe(details.note),
-                appliedPeriod
-        );
+                safe(occurrence.note),
+                dateText);
+        item.setStatus(occurrence.status);
+        item.setChangeNote(occurrence.changeNote);
+        item.setEpochDay(occurrence.epochDay);
+        item.setExceptionId(occurrence.exceptionId);
+        return item;
     }
 
     private void resetToggleButtonsStyle() {
@@ -322,6 +323,10 @@ public class TimetableFragment extends Fragment {
 
     private static String formatCardTime(int minutes) {
         return String.format(Locale.ROOT, "%02d:%02d", minutes / 60, minutes % 60);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private static String safe(String value) {

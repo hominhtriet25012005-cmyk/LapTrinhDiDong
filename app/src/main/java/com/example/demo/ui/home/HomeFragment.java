@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -23,8 +24,9 @@ import com.example.demo.adapter.QuickActionAdapter;
 import com.example.demo.adapter.ScheduleAdapter;
 import com.example.demo.data.local.entity.SemesterEntity;
 import com.example.demo.data.local.entity.SubjectEntity;
-import com.example.demo.data.local.projection.ScheduleDetails;
 import com.example.demo.data.repository.AppRepository;
+import com.example.demo.data.schedule.ClassOccurrence;
+import com.example.demo.data.schedule.ScheduleSnapshot;
 import com.example.demo.data.validation.HomeDashboardCalculator;
 import com.example.demo.model.QuickActionItem;
 import com.example.demo.model.ScheduleItem;
@@ -47,9 +49,9 @@ public class HomeFragment extends Fragment {
     private LiveData<List<SubjectEntity>> currentSubjectsSource;
     private final Handler clockHandler = new Handler(Looper.getMainLooper());
     private final Runnable clockTick = this::onClockTick;
-    private List<ScheduleDetails> cachedScheduleDetails;
+    private ScheduleSnapshot cachedSnapshot;
     private LocalDate cachedScheduleDate;
-    private ScheduleDetails nextClass;
+    private ClassOccurrence nextClass;
     private int loadGeneration;
 
     @Nullable
@@ -131,23 +133,20 @@ public class HomeFragment extends Fragment {
         clockHandler.removeCallbacks(clockTick);
         rvTodayClasses = null;
         scheduleAdapter = null;
-        cachedScheduleDetails = null;
+        cachedSnapshot = null;
         cachedScheduleDate = null;
         super.onDestroyView();
     }
 
     private void setupTodayClasses() {
-        scheduleAdapter = new ScheduleAdapter(new ArrayList<>(), item -> {
-            try {
-                long scheduleId = Long.parseLong(item.getId());
-                withMainActivity(activity -> activity.openScheduleDetail(scheduleId));
-            } catch (NumberFormatException ignored) {
-                // Every row is created from a persisted Room schedule ID.
-            }
-        });
+        scheduleAdapter = new ScheduleAdapter(new ArrayList<>(), this::onScheduleItemClick);
         scheduleAdapter.setShowDayLabel(false);
         rvTodayClasses.setLayoutManager(new LinearLayoutManager(getContext()));
         rvTodayClasses.setAdapter(scheduleAdapter);
+    }
+
+    private void onScheduleItemClick(ScheduleItem item) {
+        withMainActivity(activity -> activity.openOccurrence(item));
     }
 
     private void setupQuickActions(RecyclerView rvQuickActions) {
@@ -185,7 +184,7 @@ public class HomeFragment extends Fragment {
         showLoadingState();
         int generation = ++loadGeneration;
         LocalDate today = LocalDate.now();
-        cachedScheduleDetails = null;
+        cachedSnapshot = null;
         cachedScheduleDate = null;
         LocalTime currentTime = LocalTime.now();
         int currentMinute = currentTime.getHour() * 60 + currentTime.getMinute();
@@ -193,19 +192,19 @@ public class HomeFragment extends Fragment {
         if (activity == null) {
             return;
         }
-        Future<List<ScheduleDetails>> load = repository.getAllScheduleDetails();
+        Future<ScheduleSnapshot> load = repository.getScheduleSnapshot();
         new Thread(() -> {
             try {
-                List<ScheduleDetails> schedules = load.get();
-                List<ScheduleDetails> loadedSchedules = schedules == null
-                        ? new ArrayList<>() : new ArrayList<>(schedules);
+                ScheduleSnapshot snapshot = load.get();
+                ScheduleSnapshot loadedSnapshot = snapshot == null
+                        ? new ScheduleSnapshot(null, null, null) : snapshot;
                 HomeDashboardCalculator.DashboardSummary summary =
-                        HomeDashboardCalculator.calculate(loadedSchedules, today, currentMinute);
+                        HomeDashboardCalculator.calculate(loadedSnapshot, today, currentMinute);
                 activity.runOnUiThread(() -> {
                     if (!isAdded() || getView() == null || generation != loadGeneration) {
                         return;
                     }
-                    cachedScheduleDetails = loadedSchedules;
+                    cachedSnapshot = loadedSnapshot;
                     cachedScheduleDate = today;
                     renderDashboard(summary);
                 });
@@ -232,7 +231,7 @@ public class HomeFragment extends Fragment {
             setText(R.id.tvWeekSummary, R.string.home_schedule_load_error);
             setText(R.id.tvTodayFreeTime, R.string.home_schedule_load_error);
             nextClass = null;
-            cachedScheduleDetails = null;
+            cachedSnapshot = null;
             cachedScheduleDate = null;
             renderNextClass(null, false, R.string.home_schedule_load_error);
         });
@@ -247,7 +246,6 @@ public class HomeFragment extends Fragment {
         empty.setVisibility(View.VISIBLE);
         rvTodayClasses.setVisibility(View.GONE);
         setText(R.id.tvWeekSummary, R.string.home_loading_schedule);
-        setText(R.id.tvTodayFreeTime, R.string.home_loading_schedule);
         nextClass = null;
         renderNextClass(null, false, R.string.home_loading_schedule);
     }
@@ -259,10 +257,11 @@ public class HomeFragment extends Fragment {
         setText(R.id.tvStatHoursCount, formatDuration(summary.todayMinutes));
         setText(R.id.tvWeekSummary, getString(R.string.home_week_summary,
                 summary.weekSchedules.size(), formatDuration(summary.weekMinutes)));
+        renderFreeTime(summary);
 
         List<ScheduleItem> todayItems = new ArrayList<>();
-        for (ScheduleDetails details : summary.todaySchedules) {
-            todayItems.add(toScheduleItem(details));
+        for (ClassOccurrence occurrence : summary.todaySchedules) {
+            todayItems.add(toScheduleItem(occurrence));
         }
         scheduleAdapter.updateData(todayItems);
         rvTodayClasses.setVisibility(todayItems.isEmpty() ? View.GONE : View.VISIBLE);
@@ -273,10 +272,9 @@ public class HomeFragment extends Fragment {
         int emptyHeroMessage = summary.todaySchedules.isEmpty()
                 ? R.string.home_no_class_today : R.string.home_all_classes_finished;
         renderNextClass(summary.nextClass, summary.nextClassOngoing, emptyHeroMessage);
-        renderFreeTime(summary);
     }
 
-    private void renderNextClass(ScheduleDetails details, boolean ongoing, int emptyMessage) {
+    private void renderNextClass(ClassOccurrence details, boolean ongoing, int emptyMessage) {
         View root = getView();
         if (root == null) {
             return;
@@ -353,11 +351,17 @@ public class HomeFragment extends Fragment {
         }
         value.setText(text.toString());
     }
-
     private void openNextClass() {
-        if (nextClass != null) {
+        if (nextClass == null) {
+            return;
+        }
+        if (nextClass.scheduleId > 0) {
             long id = nextClass.scheduleId;
             withMainActivity(activity -> activity.openScheduleDetail(id));
+        } else if (getContext() != null) {
+            Toast.makeText(getContext(), getString(R.string.schedule_makeup_info,
+                    safe(nextClass.subjectName), formatClock(nextClass.startMinute),
+                    formatClock(nextClass.endMinute)), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -366,13 +370,13 @@ public class HomeFragment extends Fragment {
             return;
         }
         LocalDate today = LocalDate.now();
-        if (cachedScheduleDetails == null || !today.equals(cachedScheduleDate)) {
+        if (cachedSnapshot == null || !today.equals(cachedScheduleDate)) {
             refreshDashboard();
         } else {
             LocalTime currentTime = LocalTime.now();
             int currentMinute = currentTime.getHour() * 60 + currentTime.getMinute();
             HomeDashboardCalculator.DashboardSummary summary =
-                    HomeDashboardCalculator.calculate(cachedScheduleDetails, today, currentMinute);
+                    HomeDashboardCalculator.calculate(cachedSnapshot, today, currentMinute);
             nextClass = summary.nextClass;
             int emptyMessage = summary.todaySchedules.isEmpty()
                     ? R.string.home_no_class_today : R.string.home_all_classes_finished;
@@ -397,20 +401,25 @@ public class HomeFragment extends Fragment {
         setText(R.id.tvDate, date);
     }
 
-    private ScheduleItem toScheduleItem(ScheduleDetails details) {
+    private ScheduleItem toScheduleItem(ClassOccurrence occurrence) {
         String[] days = getResources().getStringArray(R.array.days_of_week);
-        String semester = isBlank(details.semesterAcademicYear)
-                ? safe(details.semesterName)
+        LocalDate date = LocalDate.ofEpochDay(occurrence.epochDay);
+        String semester = isBlank(occurrence.semesterAcademicYear)
+                ? safe(occurrence.semesterName)
                 : getString(R.string.semester_label_format,
-                        details.semesterName, details.semesterAcademicYear);
-        String appliedPeriod = LocalDate.ofEpochDay(details.validFromEpochDay)
-                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT))
-                + " – " + LocalDate.ofEpochDay(details.validToEpochDay)
-                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT));
-        return new ScheduleItem(String.valueOf(details.scheduleId), safe(details.classCode),
-                safe(details.subjectName), formatClock(details.startMinute), formatClock(details.endMinute),
-                safe(details.room), safe(details.lecturer), days[details.dayOfWeek - 1],
-                safe(details.subjectColorKey), semester, safe(details.note), appliedPeriod);
+                occurrence.semesterName, occurrence.semesterAcademicYear);
+        String dateText = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT));
+        ScheduleItem item = new ScheduleItem(String.valueOf(occurrence.scheduleId),
+                safe(occurrence.classCode), safe(occurrence.subjectName),
+                formatClock(occurrence.startMinute), formatClock(occurrence.endMinute),
+                safe(occurrence.room), safe(occurrence.lecturer),
+                days[date.getDayOfWeek().getValue() - 1],
+                safe(occurrence.subjectColorKey), semester, safe(occurrence.note), dateText);
+        item.setStatus(occurrence.status);
+        item.setChangeNote(occurrence.changeNote);
+        item.setEpochDay(occurrence.epochDay);
+        item.setExceptionId(occurrence.exceptionId);
+        return item;
     }
 
     private String formatSemester(SemesterEntity semester) {

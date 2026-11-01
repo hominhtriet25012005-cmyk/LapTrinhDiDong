@@ -9,6 +9,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import com.example.demo.data.settings.WeekSettings;
 
 /** Resolves export dates and expands recurring Room schedules into dated occurrences. */
 public final class ScheduleExportCalculator {
@@ -44,6 +45,10 @@ public final class ScheduleExportCalculator {
         private Occurrence(LocalDate date, ScheduleDetails schedule) {
             this.date = date;
             this.schedule = schedule;
+        }
+        /** Creates a row from an already resolved session (used for exports that honour changes). */
+        public static Occurrence of(LocalDate date, ScheduleDetails schedule) {
+            return new Occurrence(date, schedule);
         }
     }
 
@@ -81,7 +86,7 @@ public final class ScheduleExportCalculator {
             start = semesterStart;
             end = semesterEnd;
         } else if (scope == Scope.CURRENT_WEEK) {
-            LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            LocalDate monday = WeekSettings.weekStart(today);
             start = monday.toEpochDay();
             end = monday.plusDays(6).toEpochDay();
             if (semesterStart != null) start = Math.max(start, semesterStart);
