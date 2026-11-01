@@ -61,6 +61,8 @@ public class ScheduleFormActivity extends AppCompatActivity {
     private TextInputEditText etToDate;
     private TextInputEditText etNotes;
     private MaterialButton btnSaveSchedule;
+    private LinearLayout layoutConflictWarning;
+    private android.widget.TextView tvConflictWarningMessage;
     private AppRepository repository;
     private SubjectEntity selectedSubject;
     private ClassSectionEntity selectedClassSection;
@@ -100,6 +102,8 @@ public class ScheduleFormActivity extends AppCompatActivity {
         etToDate = findViewById(R.id.etToDate);
         etNotes = findViewById(R.id.etNotes);
         btnSaveSchedule = findViewById(R.id.btnSaveSchedule);
+        layoutConflictWarning = findViewById(R.id.layoutConflictWarning);
+        tvConflictWarningMessage = findViewById(R.id.tvConflictWarningMessage);
 
         repository = AppRepository.getInstance(getApplicationContext());
         scheduleId = getIntent().getLongExtra(EXTRA_SCHEDULE_ID, 0L);
@@ -399,6 +403,9 @@ public class ScheduleFormActivity extends AppCompatActivity {
         tilClassSection.setError(null);
         tilStartTime.setError(null);
         tilEndTime.setError(null);
+        if (layoutConflictWarning != null) {
+            layoutConflictWarning.setVisibility(android.view.View.GONE);
+        }
         tilFromDate.setError(null);
         tilToDate.setError(null);
         if (selectedSubject == null) {
@@ -467,7 +474,17 @@ public class ScheduleFormActivity extends AppCompatActivity {
         saving = false;
         btnSaveSchedule.setEnabled(!subjects.isEmpty());
         if (error instanceof ScheduleConflictException) {
-            Toast.makeText(this, R.string.error_schedule_conflict, Toast.LENGTH_LONG).show();
+            if (layoutConflictWarning != null) {
+                layoutConflictWarning.setVisibility(android.view.View.VISIBLE);
+                if (tvConflictWarningMessage != null) {
+                    tvConflictWarningMessage.setText(R.string.error_schedule_conflict);
+                }
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.title_conflict_warning)
+                    .setMessage(R.string.error_schedule_conflict)
+                    .setPositiveButton(R.string.action_confirm, (dialog, which) -> dialog.dismiss())
+                    .show();
             return;
         }
         Toast.makeText(this, R.string.error_schedule_save, Toast.LENGTH_LONG).show();

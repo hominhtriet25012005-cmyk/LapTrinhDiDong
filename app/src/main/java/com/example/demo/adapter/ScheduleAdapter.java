@@ -91,6 +91,31 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             holder.tvSubjectTag.setTextColor(ContextCompat.getColor(ctx, R.color.tag_blue_text));
         }
 
+        // Exception badge
+        String excType = item.getExceptionType() != null ? item.getExceptionType().toLowerCase() : "normal";
+        if ("cancelled".equals(excType)) {
+            holder.tvExceptionBadge.setVisibility(View.VISIBLE);
+            holder.tvExceptionBadge.setText("Nghỉ học");
+            holder.tvExceptionBadge.setBackgroundResource(R.drawable.bg_badge_red);
+            holder.tvExceptionBadge.setTextColor(ContextCompat.getColor(ctx, R.color.tag_red_text));
+            holder.itemView.setAlpha(0.65f);
+        } else if ("rescheduled".equals(excType)) {
+            holder.tvExceptionBadge.setVisibility(View.VISIBLE);
+            holder.tvExceptionBadge.setText("Đổi lịch");
+            holder.tvExceptionBadge.setBackgroundResource(R.drawable.bg_badge_amber);
+            holder.tvExceptionBadge.setTextColor(ContextCompat.getColor(ctx, R.color.tag_amber_text));
+            holder.itemView.setAlpha(1.0f);
+        } else if ("makeup".equals(excType)) {
+            holder.tvExceptionBadge.setVisibility(View.VISIBLE);
+            holder.tvExceptionBadge.setText("Học bù");
+            holder.tvExceptionBadge.setBackgroundResource(R.drawable.bg_badge_violet);
+            holder.tvExceptionBadge.setTextColor(ContextCompat.getColor(ctx, R.color.tag_violet_text));
+            holder.itemView.setAlpha(1.0f);
+        } else {
+            holder.tvExceptionBadge.setVisibility(View.GONE);
+            holder.itemView.setAlpha(1.0f);
+        }
+
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onItemClick(item);
@@ -108,6 +133,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
         final TextView tvStartTime;
         final TextView tvEndTime;
         final TextView tvSubjectTag;
+        final TextView tvExceptionBadge;
         final TextView tvRoom;
         final TextView tvLecturer;
         final ImageView ivChevron;
@@ -118,6 +144,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             tvStartTime = itemView.findViewById(R.id.tvStartTime);
             tvEndTime = itemView.findViewById(R.id.tvEndTime);
             tvSubjectTag = itemView.findViewById(R.id.tvSubjectTag);
+            tvExceptionBadge = itemView.findViewById(R.id.tvExceptionBadge);
             tvRoom = itemView.findViewById(R.id.tvRoom);
             tvLecturer = itemView.findViewById(R.id.tvLecturer);
             ivChevron = itemView.findViewById(R.id.ivChevron);

@@ -1,13 +1,17 @@
 package com.example.demo.data.validation;
 
 import com.example.demo.data.local.entity.SemesterEntity;
+import com.example.demo.data.local.entity.ScheduleExceptionEntity;
 import com.example.demo.data.local.projection.ScheduleDetails;
+import com.example.demo.data.model.ScheduleResolver;
+import com.example.demo.data.model.ScheduleSnapshot;
 
 import org.junit.Test;
 
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 
@@ -49,7 +53,7 @@ public class SemesterStatisticsCalculatorTest {
                 semester, 2, Arrays.asList(monday, wednesday));
 
         assertEquals(2, result.classesPerWeek);
-        assertEquals(150, result.weeklyMinutes);
+        assertEquals(105, result.weeklyMinutes);
         assertEquals(210, result.totalSemesterMinutes);
     }
 
@@ -87,6 +91,49 @@ public class SemesterStatisticsCalculatorTest {
         assertEquals(270, result.totalSemesterMinutes);
     }
 
+    @Test
+    public void statisticsUseCancelledAndMakeupOccurrencesFromSharedSnapshot() {
+        LocalDate start = LocalDate.of(2026, 3, 2);
+        LocalDate end = LocalDate.of(2026, 3, 15);
+        SemesterEntity semester = semester(12L, "Spring", start, end);
+        ScheduleDetails monday = schedule(12L, 1, 540, 600, start, end);
+        ScheduleExceptionEntity cancellation = exception(
+                monday.scheduleId, start.plusDays(7), ScheduleExceptionEntity.TYPE_CANCEL,
+                null, null, null);
+        ScheduleExceptionEntity makeup = exception(
+                monday.scheduleId, start, ScheduleExceptionEntity.TYPE_MAKEUP,
+                start.plusDays(2), 660, 720);
+        ScheduleSnapshot snapshot = ScheduleResolver.resolve(Collections.singletonList(monday),
+                Arrays.asList(cancellation, makeup), start, end);
+
+        SemesterStatisticsCalculator.Statistics result = SemesterStatisticsCalculator.calculate(
+                semester, 1, snapshot);
+
+        assertEquals(1, result.totalClassOccurrences);
+        assertEquals(60, result.totalSemesterMinutes);
+        assertEquals(30, result.weeklyMinutes);
+        assertEquals(1, result.classesPerWeek);
+        assertEquals(0, result.classesByDay[0]);
+        assertEquals(1, result.classesByDay[2]);
+    }
+
+    @Test
+    public void fallbackSemesterBoundsExpandToIncludeReplacementDates() {
+        LocalDate monday = LocalDate.of(2026, 3, 2);
+        SemesterEntity semester = new SemesterEntity("HK1", "2025-2026", null, null, true, "");
+        semester.id = 13L;
+        ScheduleDetails schedule = schedule(13L, 1, 540, 600, monday, monday);
+        ScheduleExceptionEntity makeup = exception(schedule.scheduleId, monday,
+                ScheduleExceptionEntity.TYPE_MAKEUP, monday.plusDays(2), 660, 720);
+
+        SemesterStatisticsCalculator.Statistics result = SemesterStatisticsCalculator.calculate(
+                semester, 1, Collections.singletonList(schedule), Collections.singletonList(makeup));
+
+        assertEquals(1, result.totalClassOccurrences);
+        assertEquals(60, result.totalSemesterMinutes);
+        assertEquals(1, result.classesByDay[2]);
+    }
+
     private static SemesterEntity semester(long id, String name, LocalDate start, LocalDate end) {
         SemesterEntity semester = new SemesterEntity(name, "2026-2027",
                 start.toEpochDay(), end.toEpochDay(), true, "");
@@ -97,6 +144,7 @@ public class SemesterStatisticsCalculatorTest {
     private static ScheduleDetails schedule(long semesterId, int dayOfWeek, int startMinute,
                                             int endMinute, LocalDate validFrom, LocalDate validTo) {
         ScheduleDetails schedule = new ScheduleDetails();
+        schedule.scheduleId = semesterId * 100L + dayOfWeek;
         schedule.semesterId = semesterId;
         schedule.dayOfWeek = dayOfWeek;
         schedule.startMinute = startMinute;
@@ -104,5 +152,18 @@ public class SemesterStatisticsCalculatorTest {
         schedule.validFromEpochDay = validFrom.toEpochDay();
         schedule.validToEpochDay = validTo.toEpochDay();
         return schedule;
+    }
+
+    private static ScheduleExceptionEntity exception(long scheduleId, LocalDate original,
+                                                      String type, LocalDate replacement,
+                                                      Integer start, Integer end) {
+        ScheduleExceptionEntity exception = new ScheduleExceptionEntity();
+        exception.scheduleId = scheduleId;
+        exception.originalDateEpochDay = original.toEpochDay();
+        exception.exceptionType = type;
+        exception.replacementDateEpochDay = replacement == null ? null : replacement.toEpochDay();
+        exception.startMinute = start;
+        exception.endMinute = end;
+        return exception;
     }
 }

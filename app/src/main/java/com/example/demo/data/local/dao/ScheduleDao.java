@@ -28,6 +28,9 @@ public interface ScheduleDao {
     @Query("SELECT * FROM schedules WHERE id = :scheduleId LIMIT 1")
     LiveData<ScheduleEntity> observeById(long scheduleId);
 
+    @Query("SELECT * FROM schedules WHERE id = :scheduleId LIMIT 1")
+    ScheduleEntity getById(long scheduleId);
+
     @Query("SELECT * FROM schedules WHERE dayOfWeek = :dayOfWeek ORDER BY startMinute, id")
     LiveData<List<ScheduleEntity>> observeForDayOfWeek(int dayOfWeek);
 
@@ -42,6 +45,12 @@ public interface ScheduleDao {
 
     @Delete
     int delete(ScheduleEntity schedule);
+
+    @Query("DELETE FROM schedules")
+    void deleteAll();
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    void insertAll(List<ScheduleEntity> schedules);
 
     @Transaction
     @Query("SELECT "

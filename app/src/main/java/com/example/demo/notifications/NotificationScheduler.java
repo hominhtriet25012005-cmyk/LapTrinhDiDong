@@ -20,15 +20,18 @@ import androidx.core.content.ContextCompat;
 import com.example.demo.MainActivity;
 import com.example.demo.R;
 import com.example.demo.data.local.AppDatabase;
-import com.example.demo.data.local.entity.ScheduleEntity;
+import com.example.demo.data.local.entity.ScheduleExceptionEntity;
 import com.example.demo.data.local.projection.ScheduleDetails;
+import com.example.demo.data.model.ClassOccurrence;
+import com.example.demo.data.model.ScheduleResolver;
+import com.example.demo.data.model.ScheduleSnapshot;
 
 import java.time.Instant;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -43,6 +46,8 @@ public final class NotificationScheduler {
             "com.example.demo.action.DAILY_SUMMARY";
     public static final String EXTRA_SCHEDULE_ID = "schedule_id";
     public static final String EXTRA_CLASS_STARTS_AT = "class_starts_at";
+    public static final String EXTRA_OCCURRENCE_DATE_EPOCH_DAY = "occurrence_date_epoch_day";
+    public static final String EXTRA_EXCEPTION_ID = "schedule_exception_id";
 
     private static final String CHANNEL_ID = "schedule_reminders";
     private static final String CHANNEL_NAME = "Nhắc lịch học";
@@ -161,7 +166,11 @@ public final class NotificationScheduler {
                 } else if (ACTION_SCHEDULE_REMINDER.equals(intent.getAction())) {
                     long id = intent.getLongExtra(EXTRA_SCHEDULE_ID, 0L);
                     long classStartsAt = intent.getLongExtra(EXTRA_CLASS_STARTS_AT, 0L);
-                    showScheduleReminder(appContext, id, classStartsAt);
+                    long occurrenceDate = intent.getLongExtra(
+                            EXTRA_OCCURRENCE_DATE_EPOCH_DAY, Long.MIN_VALUE);
+                    long exceptionId = intent.getLongExtra(EXTRA_EXCEPTION_ID, 0L);
+                    showScheduleReminder(appContext, id, classStartsAt,
+                            occurrenceDate, exceptionId);
                 }
             } catch (RuntimeException exception) {
                 Log.e(TAG, "Không thể xử lý thông báo đến hạn.", exception);
@@ -181,24 +190,24 @@ public final class NotificationScheduler {
             NotificationPreferences.setRemindersEnabled(context, remindersEnabled);
         }
 
-        List<ScheduleEntity> schedules = database.scheduleDao().getAll();
+        Instant now = Instant.now();
+        ZoneId zone = ZoneId.systemDefault();
+        LocalDate today = now.atZone(zone).toLocalDate();
+        ScheduleSnapshot snapshot = database.runInTransaction(() -> {
+            List<ScheduleDetails> schedules = database.scheduleDao().getAllDetails();
+            List<ScheduleExceptionEntity> exceptions = database.scheduleExceptionDao().getAll();
+            LocalDate lastRelevantDate = latestRelevantDate(schedules, exceptions, today);
+            return ScheduleResolver.resolve(schedules, exceptions, today, lastRelevantDate);
+        });
         Set<String> previouslyScheduled = new HashSet<>(context
                 .getSharedPreferences(PREF_ALARMS, Context.MODE_PRIVATE)
                 .getStringSet(KEY_SCHEDULE_IDS, new HashSet<>()));
         Set<String> scheduledNow = new HashSet<>();
-        Instant now = Instant.now();
-        ZoneId zone = ZoneId.systemDefault();
-        for (ScheduleEntity schedule : schedules) {
-            if (!remindersEnabled || !schedule.notificationEnabled) {
-                continue;
-            }
-            ScheduleReminderCalculator.Occurrence occurrence =
-                    ScheduleReminderCalculator.nextOccurrence(schedule, now, zone);
-            if (occurrence == null) {
-                continue;
-            }
-            scheduleReminder(context, schedule.id, occurrence);
-            scheduledNow.add(Long.toString(schedule.id));
+        List<ScheduleReminderPlanner.Reminder> reminders =
+                ScheduleReminderPlanner.planNextPerSchedule(snapshot, now, zone, remindersEnabled);
+        for (ScheduleReminderPlanner.Reminder reminder : reminders) {
+            scheduleReminder(context, reminder);
+            scheduledNow.add(Long.toString(reminder.scheduleId));
         }
 
         for (String oldId : previouslyScheduled) {
@@ -224,6 +233,36 @@ public final class NotificationScheduler {
         }
     }
 
+    private static LocalDate latestRelevantDate(List<ScheduleDetails> schedules,
+                                               List<ScheduleExceptionEntity> exceptions,
+                                               LocalDate today) {
+        LocalDate latest = today;
+        for (ScheduleDetails schedule : schedules) {
+            LocalDate end = safeDate(schedule.validToEpochDay);
+            if (end != null && end.isAfter(latest)) {
+                latest = end;
+            }
+        }
+        for (ScheduleExceptionEntity exception : exceptions) {
+            if (exception.replacementDateEpochDay == null) {
+                continue;
+            }
+            LocalDate replacement = safeDate(exception.replacementDateEpochDay);
+            if (replacement != null && replacement.isAfter(latest)) {
+                latest = replacement;
+            }
+        }
+        return latest;
+    }
+
+    private static LocalDate safeDate(long epochDay) {
+        try {
+            return LocalDate.ofEpochDay(epochDay);
+        } catch (DateTimeException ignored) {
+            return null;
+        }
+    }
+
     private static void ensureSummaryAlarm(Context context) {
         android.content.SharedPreferences preferences = context
                 .getSharedPreferences(PREF_ALARMS, Context.MODE_PRIVATE);
@@ -240,19 +279,21 @@ public final class NotificationScheduler {
         scheduleNextSummary(context);
     }
 
-    private static void scheduleReminder(Context context, long scheduleId,
-                                         ScheduleReminderCalculator.Occurrence occurrence) {
+    private static void scheduleReminder(Context context,
+                                         ScheduleReminderPlanner.Reminder reminder) {
         AlarmManager manager = context.getSystemService(AlarmManager.class);
         if (manager == null) {
             return;
         }
-        PendingIntent pendingIntent = reminderPendingIntent(context, scheduleId,
-                occurrence.classStartsAtMillis, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pendingIntent = reminderPendingIntent(context, reminder,
+                PendingIntent.FLAG_UPDATE_CURRENT);
         try {
+            // Deliberately use inexact alarms to avoid restricted exact-alarm special access.
+            // Android may defer delivery while power-saving restrictions are active.
             manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
-                    occurrence.reminderAtMillis, pendingIntent);
+                    reminder.reminderAtMillis, pendingIntent);
         } catch (RuntimeException exception) {
-            Log.e(TAG, "Không thể lên lịch nhắc cho lịch " + scheduleId, exception);
+            Log.e(TAG, "Không thể lên lịch nhắc cho lịch " + reminder.scheduleId, exception);
         }
     }
 
@@ -280,81 +321,99 @@ public final class NotificationScheduler {
     }
 
     private static void showScheduleReminder(Context context, long scheduleId,
-                                             long classStartsAtMillis) {
+                                             long classStartsAtMillis,
+                                             long occurrenceDateEpochDay, long exceptionId) {
         AppDatabase database = AppDatabase.getInstance(context);
-        ScheduleEntity schedule = null;
-        for (ScheduleEntity item : database.scheduleDao().getAll()) {
-            if (item.id == scheduleId) {
-                schedule = item;
-                break;
-            }
-        }
-        if (schedule == null || !NotificationPreferences.remindersEnabled(context)
-                || !schedule.notificationEnabled) {
-            cancelScheduleAlarm(context, scheduleId);
-            return;
-        }
-
-        ScheduleDetails details = null;
-        for (ScheduleDetails item : database.scheduleDao().getAllDetails()) {
-            if (item.scheduleId == scheduleId) {
-                details = item;
-                break;
-            }
-        }
-        if (details == null) {
-            cancelScheduleAlarm(context, scheduleId);
-            return;
-        }
-        if (notificationsAllowed(context)) {
+        ZoneId zone = ZoneId.systemDefault();
+        LocalDate occurrenceDate = safeDate(occurrenceDateEpochDay);
+        ClassOccurrence currentOccurrence = occurrenceDate == null ? null
+                : findOccurrence(database, occurrenceDate, scheduleId, exceptionId,
+                        classStartsAtMillis, zone);
+        long nowMillis = System.currentTimeMillis();
+        if (currentOccurrence != null
+                && nowMillis < classEndMillis(currentOccurrence, zone)
+                && NotificationPreferences.remindersEnabled(context)
+                && currentOccurrence.schedule.notificationEnabled
+                && notificationsAllowed(context)) {
             String title = context.getString(R.string.notification_reminder_title,
-                    safe(details.subjectName), safe(details.classCode));
+                    safe(currentOccurrence.schedule.subjectName),
+                    safe(currentOccurrence.schedule.classCode));
+            String room = currentOccurrence.room == null || currentOccurrence.room.trim().isEmpty()
+                    ? context.getString(R.string.notification_room_unknown)
+                    : currentOccurrence.room.trim();
             String body = context.getString(R.string.notification_reminder_body,
-                    formatTime(classStartsAtMillis, ZoneId.systemDefault()),
-                    details.room == null || details.room.trim().isEmpty()
-                            ? context.getString(R.string.notification_room_unknown) : details.room);
+                    formatTime(classStartsAtMillis, zone), room);
             postNotification(context, notificationId(scheduleId), title, body);
         }
-
-        ScheduleReminderCalculator.Occurrence next = ScheduleReminderCalculator.nextOccurrence(
-                schedule, Instant.now(), ZoneId.systemDefault());
-        if (next == null) {
-            cancelScheduleAlarm(context, scheduleId);
-        } else {
-            scheduleReminder(context, scheduleId, next);
-        }
+        // Re-resolve after delivery so the next alarm reflects current Room rows and exceptions.
+        syncAllOnWorker(context);
     }
 
     private static void showDailySummary(Context context) {
         if (!NotificationPreferences.dailySummaryEnabled(context)) {
+            clearSummaryAlarmMetadata(context);
+            syncAllOnWorker(context);
             return;
         }
         ZoneId zone = ZoneId.systemDefault();
         LocalDate today = LocalDate.now(zone);
-        List<ScheduleDetails> todaysSchedules = new ArrayList<>();
-        for (ScheduleDetails schedule : AppDatabase.getInstance(context)
-                .scheduleDao().getAllDetails()) {
-            if (schedule.dayOfWeek == today.getDayOfWeek().getValue()
-                    && today.toEpochDay() >= schedule.validFromEpochDay
-                    && today.toEpochDay() <= schedule.validToEpochDay) {
-                todaysSchedules.add(schedule);
-            }
-        }
+        ScheduleSnapshot snapshot = loadSnapshotForRange(
+                AppDatabase.getInstance(context), today, today);
+        List<ClassOccurrence> todaysOccurrences = snapshot.on(today);
 
         if (notificationsAllowed(context)) {
             String title = context.getString(R.string.notification_summary_title);
             String body;
-            if (todaysSchedules.isEmpty()) {
+            if (todaysOccurrences.isEmpty()) {
                 body = context.getString(R.string.notification_summary_empty);
             } else {
-                ScheduleDetails first = todaysSchedules.get(0);
                 body = context.getString(R.string.notification_summary_body,
-                        todaysSchedules.size(), formatTime(first.startMinute),
-                        safe(first.subjectName), safe(first.classCode));
+                        todaysOccurrences.size(), DailySummaryFormatter.formatAgenda(
+                                todaysOccurrences,
+                                context.getString(R.string.notification_room_unknown)));
             }
             postNotification(context, SUMMARY_NOTIFICATION_ID, title, body);
         }
-        scheduleNextSummary(context);
+        // The just-fired daily alarm still has a PendingIntent token, so clear its metadata
+        // before the regular sync decides whether to create tomorrow's summary alarm.
+        clearSummaryAlarmMetadata(context);
+        syncAllOnWorker(context);
+    }
+
+    private static ScheduleSnapshot loadSnapshotForRange(AppDatabase database,
+                                                         LocalDate from, LocalDate to) {
+        return database.runInTransaction(() -> ScheduleResolver.resolve(
+                database.scheduleDao().getAllDetails(),
+                database.scheduleExceptionDao().getAll(), from, to));
+    }
+
+    private static ClassOccurrence findOccurrence(AppDatabase database, LocalDate date,
+                                                  long scheduleId, long exceptionId,
+                                                  long classStartsAtMillis, ZoneId zone) {
+        ScheduleSnapshot snapshot = loadSnapshotForRange(database, date, date);
+        for (ClassOccurrence occurrence : snapshot.on(date)) {
+            if (occurrence.schedule.scheduleId == scheduleId
+                    && occurrence.exceptionId == exceptionId
+                    && classStartMillis(occurrence, zone) == classStartsAtMillis) {
+                return occurrence;
+            }
+        }
+        return null;
+    }
+
+    private static long classStartMillis(ClassOccurrence occurrence, ZoneId zone) {
+        return LocalDateTime.of(occurrence.date, LocalTime.of(
+                        occurrence.startMinute / 60, occurrence.startMinute % 60))
+                .atZone(zone).toInstant().toEpochMilli();
+    }
+
+    private static long classEndMillis(ClassOccurrence occurrence, ZoneId zone) {
+        if (occurrence.endMinute == 1_440) {
+            return occurrence.date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli();
+        }
+        return LocalDateTime.of(occurrence.date, LocalTime.of(
+                        occurrence.endMinute / 60, occurrence.endMinute % 60))
+                .atZone(zone).toInstant().toEpochMilli();
     }
 
     private static void postNotification(Context context, int id, String title, String body) {
@@ -379,13 +438,23 @@ public final class NotificationScheduler {
         }
     }
 
+    private static PendingIntent reminderPendingIntent(
+            Context context, ScheduleReminderPlanner.Reminder reminder, int flag) {
+        return reminderPendingIntent(context, reminder.scheduleId,
+                reminder.classStartsAtMillis, reminder.occurrenceDateEpochDay,
+                reminder.exceptionId, flag);
+    }
+
     private static PendingIntent reminderPendingIntent(Context context, long scheduleId,
-                                                       long classStartsAt, int flag) {
+                                                       long classStartsAt, long dateEpochDay,
+                                                       long exceptionId, int flag) {
         Intent intent = new Intent(context, ScheduleNotificationReceiver.class)
                 .setAction(ACTION_SCHEDULE_REMINDER)
                 .setData(Uri.parse("schedule-reminder://schedule/" + scheduleId))
                 .putExtra(EXTRA_SCHEDULE_ID, scheduleId)
-                .putExtra(EXTRA_CLASS_STARTS_AT, classStartsAt);
+                .putExtra(EXTRA_CLASS_STARTS_AT, classStartsAt)
+                .putExtra(EXTRA_OCCURRENCE_DATE_EPOCH_DAY, dateEpochDay)
+                .putExtra(EXTRA_EXCEPTION_ID, exceptionId);
         return PendingIntent.getBroadcast(context, 0, intent,
                 flag | PendingIntent.FLAG_IMMUTABLE);
     }
@@ -401,7 +470,7 @@ public final class NotificationScheduler {
     private static void cancelScheduleAlarm(Context context, long scheduleId) {
         AlarmManager manager = context.getSystemService(AlarmManager.class);
         PendingIntent pendingIntent = reminderPendingIntent(context, scheduleId, 0L,
-                PendingIntent.FLAG_NO_CREATE);
+                Long.MIN_VALUE, 0L, PendingIntent.FLAG_NO_CREATE);
         if (manager != null && pendingIntent != null) {
             manager.cancel(pendingIntent);
             pendingIntent.cancel();

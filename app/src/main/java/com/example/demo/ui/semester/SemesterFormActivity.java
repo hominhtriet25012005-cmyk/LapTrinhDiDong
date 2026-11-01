@@ -33,9 +33,11 @@ public class SemesterFormActivity extends AppCompatActivity {
     private static final DateTimeFormatter DISPLAY_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private TextInputLayout tilSemesterName;
+    private TextInputLayout tilAcademicYear;
     private TextInputLayout tilStartDate;
     private TextInputLayout tilEndDate;
     private TextInputEditText etSemesterName;
+    private TextInputEditText etAcademicYear;
     private TextInputEditText etStartDate;
     private TextInputEditText etEndDate;
     private TextInputEditText etSemesterNote;
@@ -58,9 +60,11 @@ public class SemesterFormActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(v -> finish());
 
         tilSemesterName = findViewById(R.id.tilSemesterName);
+        tilAcademicYear = findViewById(R.id.tilAcademicYear);
         tilStartDate = findViewById(R.id.tilStartDate);
         tilEndDate = findViewById(R.id.tilEndDate);
         etSemesterName = findViewById(R.id.etSemesterName);
+        etAcademicYear = findViewById(R.id.etAcademicYear);
         etStartDate = findViewById(R.id.etStartDate);
         etEndDate = findViewById(R.id.etEndDate);
         etSemesterNote = findViewById(R.id.etSemesterNote);
@@ -132,6 +136,7 @@ public class SemesterFormActivity extends AppCompatActivity {
 
     private void populateData(SemesterEntity semester) {
         etSemesterName.setText(semester.name);
+        etAcademicYear.setText(semester.academicYear);
         etStartDate.setText(formatDate(semester.startDateEpochDay));
         etEndDate.setText(formatDate(semester.endDateEpochDay));
         etSemesterNote.setText(semester.note);
@@ -149,6 +154,7 @@ public class SemesterFormActivity extends AppCompatActivity {
             semester = SemesterFormMapper.toEntity(
                     editSemester == null ? null : editSemester.id,
                     getText(etSemesterName),
+                    getText(etAcademicYear),
                     getText(etStartDate),
                     getText(etEndDate),
                     getText(etSemesterNote),
@@ -225,6 +231,7 @@ public class SemesterFormActivity extends AppCompatActivity {
 
     private void clearValidationErrors() {
         tilSemesterName.setError(null);
+        tilAcademicYear.setError(null);
         tilStartDate.setError(null);
         tilEndDate.setError(null);
     }
@@ -232,6 +239,8 @@ public class SemesterFormActivity extends AppCompatActivity {
     private void showValidationError(String message) {
         if (message.startsWith("Tên học kỳ")) {
             tilSemesterName.setError(message);
+        } else if (message.startsWith("Năm học")) {
+            tilAcademicYear.setError(message);
         } else if (message.startsWith("Ngày bắt đầu")) {
             tilStartDate.setError(message);
         } else if (message.startsWith("Ngày kết thúc")) {

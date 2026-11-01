@@ -18,16 +18,18 @@ import com.example.demo.MainActivity;
 import com.example.demo.R;
 import com.example.demo.adapter.ScheduleAdapter;
 import com.example.demo.data.local.projection.ScheduleDetails;
+import com.example.demo.data.model.ClassOccurrence;
+import com.example.demo.data.model.ScheduleSnapshot;
 import com.example.demo.data.repository.AppRepository;
 import com.example.demo.model.ScheduleItem;
+import com.example.demo.settings.WeekCalculator;
+import com.example.demo.settings.WeekSettings;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -50,7 +52,6 @@ public class TimetableFragment extends Fragment {
     private RecyclerView rvTimetableClasses;
     private ScheduleAdapter scheduleAdapter;
     private AppRepository repository;
-    private List<ScheduleDetails> allSchedules = new ArrayList<>();
     private LocalDate selectedDate = LocalDate.now();
     private int viewMode = MODE_DAY;
     private int loadGeneration;
@@ -116,7 +117,16 @@ public class TimetableFragment extends Fragment {
     public void onResume() {
         super.onResume();
         if (repository != null && rvTimetableClasses != null) {
-            loadScheduleDetails();
+            renderSchedules();
+        }
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden && rvTimetableClasses != null) {
+            updateDateDisplay();
+            renderSchedules();
         }
     }
 
@@ -159,7 +169,8 @@ public class TimetableFragment extends Fragment {
             tvSelectedDate.setText(selectedDate.format(
                     DateTimeFormatter.ofPattern("EEEE, d 'tháng' M 'năm' yyyy", vietnamese)));
         } else if (viewMode == MODE_WEEK) {
-            LocalDate weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            int firstDayOfWeek = WeekSettings.getFirstDayOfWeek(requireContext());
+            LocalDate weekStart = WeekCalculator.startOfWeek(selectedDate, firstDayOfWeek);
             LocalDate weekEnd = weekStart.plusDays(6);
             String start = weekStart.format(DateTimeFormatter.ofPattern("dd/MM", vietnamese));
             String end = weekEnd.format(DateTimeFormatter.ofPattern("dd/MM/yyyy", vietnamese));
@@ -171,42 +182,8 @@ public class TimetableFragment extends Fragment {
         tvTodayLabel.setVisibility(selectedDate.equals(LocalDate.now()) ? View.VISIBLE : View.GONE);
     }
 
-    private void loadScheduleDetails() {
-        int generation = ++loadGeneration;
-        MainActivity activity = getActivity() instanceof MainActivity ? (MainActivity) getActivity() : null;
-        if (activity == null) {
-            return;
-        }
-        Future<List<ScheduleDetails>> load = repository.getAllScheduleDetails();
-        new Thread(() -> {
-            try {
-                List<ScheduleDetails> result = load.get();
-                activity.runOnUiThread(() -> {
-                    if (!isAdded()) {
-                        return;
-                    }
-                    if (generation != loadGeneration) {
-                        return;
-                    }
-                    allSchedules = result == null ? new ArrayList<>() : result;
-                    renderSchedules();
-                });
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-            } catch (ExecutionException ignored) {
-                activity.runOnUiThread(() -> {
-                    if (!isAdded() || generation != loadGeneration) {
-                        return;
-                    }
-                    allSchedules = new ArrayList<>();
-                    renderSchedules();
-                });
-            }
-        }, "timetable-load-result").start();
-    }
-
     private void renderSchedules() {
-        if (scheduleAdapter == null) {
+        if (scheduleAdapter == null || repository == null) {
             return;
         }
         LocalDate periodStart;
@@ -215,18 +192,42 @@ public class TimetableFragment extends Fragment {
             periodStart = selectedDate;
             periodEnd = selectedDate;
         } else if (viewMode == MODE_WEEK) {
-            periodStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            int firstDayOfWeek = WeekSettings.getFirstDayOfWeek(requireContext());
+            periodStart = WeekCalculator.startOfWeek(selectedDate, firstDayOfWeek);
             periodEnd = periodStart.plusDays(6);
         } else {
             periodStart = selectedDate.withDayOfMonth(1);
             periodEnd = selectedDate.withDayOfMonth(selectedDate.lengthOfMonth());
         }
 
-        List<ScheduleItem> visibleSchedules = new ArrayList<>();
-        for (ScheduleDetails schedule : allSchedules) {
-            if (hasOccurrence(schedule, periodStart, periodEnd)) {
-                visibleSchedules.add(toScheduleItem(schedule));
+        MainActivity activity = getActivity() instanceof MainActivity ? (MainActivity) getActivity() : null;
+        if (activity == null) return;
+        int generation = ++loadGeneration;
+        Future<ScheduleSnapshot> load = repository.getScheduleSnapshot(periodStart, periodEnd);
+        new Thread(() -> {
+            try {
+                ScheduleSnapshot snapshot = load.get();
+                List<ClassOccurrence> visibleOccurrences = snapshot == null
+                        ? new ArrayList<>() : snapshot.occurrences;
+                activity.runOnUiThread(() -> {
+                    if (!isAdded() || getView() == null || generation != loadGeneration) return;
+                    renderResolvedSchedules(visibleOccurrences);
+                });
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException | RuntimeException exception) {
+                activity.runOnUiThread(() -> {
+                    if (!isAdded() || getView() == null || generation != loadGeneration) return;
+                    renderResolvedSchedules(new ArrayList<>());
+                });
             }
+        }, "timetable-snapshot-load").start();
+    }
+
+    private void renderResolvedSchedules(List<ClassOccurrence> occurrences) {
+        List<ScheduleItem> visibleSchedules = new ArrayList<>();
+        for (ClassOccurrence occurrence : occurrences) {
+            visibleSchedules.add(toScheduleItem(occurrence.toScheduleDetails()));
         }
         scheduleAdapter.setShowDayLabel(viewMode != MODE_DAY);
         scheduleAdapter.updateData(visibleSchedules);
@@ -242,22 +243,6 @@ public class TimetableFragment extends Fragment {
                     R.string.schedule_month_count_format, month, visibleSchedules.size()));
         }
         tvEmptySchedule.setVisibility(visibleSchedules.isEmpty() ? View.VISIBLE : View.GONE);
-    }
-
-    private static boolean hasOccurrence(ScheduleDetails schedule, LocalDate periodStart, LocalDate periodEnd) {
-        LocalDate first = periodStart.isAfter(LocalDate.ofEpochDay(schedule.validFromEpochDay))
-                ? periodStart : LocalDate.ofEpochDay(schedule.validFromEpochDay);
-        LocalDate last = periodEnd.isBefore(LocalDate.ofEpochDay(schedule.validToEpochDay))
-                ? periodEnd : LocalDate.ofEpochDay(schedule.validToEpochDay);
-        if (first.isAfter(last)) {
-            return false;
-        }
-        for (LocalDate date = first; !date.isAfter(last); date = date.plusDays(1)) {
-            if (date.getDayOfWeek().getValue() == schedule.dayOfWeek) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private ScheduleItem toScheduleItem(ScheduleDetails details) {

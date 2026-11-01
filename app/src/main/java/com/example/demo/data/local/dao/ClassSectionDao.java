@@ -28,7 +28,7 @@ public interface ClassSectionDao {
     @Query("SELECT * FROM class_sections WHERE id = :classSectionId LIMIT 1")
     ClassSectionEntity getById(long classSectionId);
 
-    @Query("SELECT * FROM class_sections WHERE subjectId = :subjectId AND classCode = :classCode COLLATE NOCASE ORDER BY id LIMIT 1")
+    @Query("SELECT * FROM class_sections WHERE subjectId = :subjectId AND UPPER(TRIM(classCode)) = UPPER(TRIM(:classCode)) ORDER BY id LIMIT 1")
     ClassSectionEntity findBySubjectAndCode(long subjectId, String classCode);
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
@@ -39,6 +39,12 @@ public interface ClassSectionDao {
 
     @Delete
     int delete(ClassSectionEntity classSection);
+
+    @Query("DELETE FROM class_sections")
+    void deleteAll();
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    void insertAll(List<ClassSectionEntity> classSections);
 
     @Transaction
     @Query("SELECT * FROM class_sections WHERE id = :classSectionId LIMIT 1")

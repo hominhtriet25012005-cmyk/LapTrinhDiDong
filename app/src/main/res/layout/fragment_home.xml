@@ -499,6 +499,12 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <Space
+            android:id="@+id/homeBottomSpacer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
         <!-- Section: Truy cập nhanh -->
         <TextView
             android:layout_width="wrap_content"

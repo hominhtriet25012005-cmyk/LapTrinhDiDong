@@ -4,7 +4,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.example.demo.data.local.entity.SemesterEntity;
+import com.example.demo.data.local.entity.ScheduleExceptionEntity;
 import com.example.demo.data.local.projection.ScheduleDetails;
+import com.example.demo.data.model.ScheduleResolver;
+import com.example.demo.data.model.ScheduleSnapshot;
+import com.example.demo.settings.WeekCalculator;
 
 import org.junit.Test;
 
@@ -26,6 +30,43 @@ public class ScheduleExportCalculatorTest {
 
         assertEquals(LocalDate.of(2026, 3, 16).toEpochDay(), range.startEpochDay);
         assertEquals(LocalDate.of(2026, 3, 22).toEpochDay(), range.endEpochDay);
+    }
+
+    @Test
+    public void currentDayUsesOnlyTodayAndIsClippedToSemester() {
+        LocalDate today = LocalDate.of(2026, 3, 18);
+        ScheduleExportCalculator.DateRange range = ScheduleExportCalculator.resolveRange(
+                ScheduleExportCalculator.Scope.CURRENT_DAY, today,
+                semester(1, today.minusDays(1), today.plusDays(1)),
+                Collections.emptyList());
+
+        assertEquals(today.toEpochDay(), range.startEpochDay);
+        assertEquals(today.toEpochDay(), range.endEpochDay);
+    }
+
+    @Test
+    public void currentDayOutsideSemesterProducesEmptyRange() {
+        LocalDate today = LocalDate.of(2026, 3, 18);
+        ScheduleExportCalculator.DateRange range = ScheduleExportCalculator.resolveRange(
+                ScheduleExportCalculator.Scope.CURRENT_DAY, today,
+                semester(1, today.plusDays(1), today.plusDays(7)),
+                Collections.emptyList());
+
+        assertTrue(range.isEmpty());
+    }
+
+    @Test
+    public void currentWeekUsesConfiguredSundayThroughSaturday() {
+        ScheduleExportCalculator.DateRange range = ScheduleExportCalculator.resolveRange(
+                ScheduleExportCalculator.Scope.CURRENT_WEEK,
+                LocalDate.of(2026, 3, 18),
+                semester(1, null, null),
+                Collections.emptyList(),
+                WeekCalculator.SUNDAY
+        );
+
+        assertEquals(LocalDate.of(2026, 3, 15).toEpochDay(), range.startEpochDay);
+        assertEquals(LocalDate.of(2026, 3, 21).toEpochDay(), range.endEpochDay);
     }
 
     @Test
@@ -95,6 +136,57 @@ public class ScheduleExportCalculatorTest {
         );
 
         assertTrue(range.isEmpty());
+    }
+
+    @Test
+    public void exportUsesResolvedMakeupAndDoesNotExportCancelledOriginal() {
+        LocalDate start = LocalDate.of(2026, 3, 2);
+        ScheduleDetails monday = schedule(1, 1, start, start.plusDays(7));
+        ScheduleExceptionEntity makeup = new ScheduleExceptionEntity();
+        makeup.scheduleId = monday.scheduleId;
+        makeup.originalDateEpochDay = start.toEpochDay();
+        makeup.exceptionType = ScheduleExceptionEntity.TYPE_MAKEUP;
+        makeup.replacementDateEpochDay = start.plusDays(2).toEpochDay();
+        makeup.startMinute = 660;
+        makeup.endMinute = 720;
+        makeup.room = "B-204";
+        ScheduleExceptionEntity cancellation = new ScheduleExceptionEntity();
+        cancellation.scheduleId = monday.scheduleId;
+        cancellation.originalDateEpochDay = start.plusDays(7).toEpochDay();
+        cancellation.exceptionType = ScheduleExceptionEntity.TYPE_CANCEL;
+        ScheduleExportCalculator.DateRange range = new ScheduleExportCalculator.DateRange(
+                start.toEpochDay(), start.plusDays(7).toEpochDay());
+        ScheduleSnapshot snapshot = ScheduleResolver.resolve(Collections.singletonList(monday),
+                Arrays.asList(makeup, cancellation), start, start.plusDays(7));
+
+        List<ScheduleExportCalculator.Occurrence> result = ScheduleExportCalculator.occurrences(
+                1L, snapshot, range);
+
+        assertEquals(1, result.size());
+        assertEquals(start.plusDays(2), result.get(0).date);
+        assertEquals(660, result.get(0).schedule.startMinute);
+        assertEquals("B-204", result.get(0).schedule.room);
+        assertEquals(ScheduleExceptionEntity.TYPE_MAKEUP,
+                result.get(0).classOccurrence.kind.name());
+    }
+
+    @Test
+    public void semesterFallbackRangeIncludesMakeupDateOutsideRecurringValidity() {
+        LocalDate start = LocalDate.of(2026, 3, 2);
+        ScheduleDetails schedule = schedule(1, 1, start, start);
+        ScheduleExceptionEntity makeup = new ScheduleExceptionEntity();
+        makeup.scheduleId = schedule.scheduleId;
+        makeup.originalDateEpochDay = start.toEpochDay();
+        makeup.exceptionType = ScheduleExceptionEntity.TYPE_MAKEUP;
+        makeup.replacementDateEpochDay = start.plusDays(2).toEpochDay();
+
+        ScheduleExportCalculator.DateRange range = ScheduleExportCalculator.resolveRange(
+                ScheduleExportCalculator.Scope.SEMESTER, start, semester(1, null, null),
+                Collections.singletonList(schedule), Collections.singletonList(makeup),
+                WeekCalculator.MONDAY);
+
+        assertEquals(start.toEpochDay(), range.startEpochDay);
+        assertEquals(start.plusDays(2).toEpochDay(), range.endEpochDay);
     }
 
     private static SemesterEntity semester(long id, LocalDate start, LocalDate end) {

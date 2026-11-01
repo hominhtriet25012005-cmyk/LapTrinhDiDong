@@ -24,10 +24,13 @@ import com.example.demo.adapter.ScheduleAdapter;
 import com.example.demo.data.local.entity.SemesterEntity;
 import com.example.demo.data.local.entity.SubjectEntity;
 import com.example.demo.data.local.projection.ScheduleDetails;
+import com.example.demo.data.model.ScheduleSnapshot;
 import com.example.demo.data.repository.AppRepository;
 import com.example.demo.data.validation.HomeDashboardCalculator;
 import com.example.demo.model.QuickActionItem;
 import com.example.demo.model.ScheduleItem;
+import com.example.demo.settings.WeekCalculator;
+import com.example.demo.settings.WeekSettings;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -47,7 +50,7 @@ public class HomeFragment extends Fragment {
     private LiveData<List<SubjectEntity>> currentSubjectsSource;
     private final Handler clockHandler = new Handler(Looper.getMainLooper());
     private final Runnable clockTick = this::onClockTick;
-    private List<ScheduleDetails> cachedScheduleDetails;
+    private ScheduleSnapshot cachedScheduleSnapshot;
     private LocalDate cachedScheduleDate;
     private ScheduleDetails nextClass;
     private int loadGeneration;
@@ -131,7 +134,7 @@ public class HomeFragment extends Fragment {
         clockHandler.removeCallbacks(clockTick);
         rvTodayClasses = null;
         scheduleAdapter = null;
-        cachedScheduleDetails = null;
+        cachedScheduleSnapshot = null;
         cachedScheduleDate = null;
         super.onDestroyView();
     }
@@ -185,7 +188,7 @@ public class HomeFragment extends Fragment {
         showLoadingState();
         int generation = ++loadGeneration;
         LocalDate today = LocalDate.now();
-        cachedScheduleDetails = null;
+        cachedScheduleSnapshot = null;
         cachedScheduleDate = null;
         LocalTime currentTime = LocalTime.now();
         int currentMinute = currentTime.getHour() * 60 + currentTime.getMinute();
@@ -193,19 +196,20 @@ public class HomeFragment extends Fragment {
         if (activity == null) {
             return;
         }
-        Future<List<ScheduleDetails>> load = repository.getAllScheduleDetails();
+        int firstDayOfWeek = WeekSettings.getFirstDayOfWeek(activity);
+        LocalDate weekStart = WeekCalculator.startOfWeek(today, firstDayOfWeek);
+        Future<ScheduleSnapshot> load = repository.getScheduleSnapshot(weekStart, weekStart.plusDays(6));
         new Thread(() -> {
             try {
-                List<ScheduleDetails> schedules = load.get();
-                List<ScheduleDetails> loadedSchedules = schedules == null
-                        ? new ArrayList<>() : new ArrayList<>(schedules);
+                ScheduleSnapshot snapshot = load.get();
                 HomeDashboardCalculator.DashboardSummary summary =
-                        HomeDashboardCalculator.calculate(loadedSchedules, today, currentMinute);
+                        HomeDashboardCalculator.calculate(
+                                snapshot, today, currentMinute, firstDayOfWeek);
                 activity.runOnUiThread(() -> {
                     if (!isAdded() || getView() == null || generation != loadGeneration) {
                         return;
                     }
-                    cachedScheduleDetails = loadedSchedules;
+                    cachedScheduleSnapshot = snapshot;
                     cachedScheduleDate = today;
                     renderDashboard(summary);
                 });
@@ -232,7 +236,7 @@ public class HomeFragment extends Fragment {
             setText(R.id.tvWeekSummary, R.string.home_schedule_load_error);
             setText(R.id.tvTodayFreeTime, R.string.home_schedule_load_error);
             nextClass = null;
-            cachedScheduleDetails = null;
+            cachedScheduleSnapshot = null;
             cachedScheduleDate = null;
             renderNextClass(null, false, R.string.home_schedule_load_error);
         });
@@ -366,13 +370,14 @@ public class HomeFragment extends Fragment {
             return;
         }
         LocalDate today = LocalDate.now();
-        if (cachedScheduleDetails == null || !today.equals(cachedScheduleDate)) {
+        if (cachedScheduleSnapshot == null || !today.equals(cachedScheduleDate)) {
             refreshDashboard();
         } else {
             LocalTime currentTime = LocalTime.now();
             int currentMinute = currentTime.getHour() * 60 + currentTime.getMinute();
-            HomeDashboardCalculator.DashboardSummary summary =
-                    HomeDashboardCalculator.calculate(cachedScheduleDetails, today, currentMinute);
+            int firstDayOfWeek = WeekSettings.getFirstDayOfWeek(requireContext());
+            HomeDashboardCalculator.DashboardSummary summary = HomeDashboardCalculator.calculate(
+                    cachedScheduleSnapshot, today, currentMinute, firstDayOfWeek);
             nextClass = summary.nextClass;
             int emptyMessage = summary.todaySchedules.isEmpty()
                     ? R.string.home_no_class_today : R.string.home_all_classes_finished;

@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.demo.R;
+import com.example.demo.data.local.entity.ScheduleExceptionEntity;
 import com.example.demo.data.local.entity.SemesterEntity;
 import com.example.demo.data.local.projection.ScheduleDetails;
 import com.example.demo.data.local.projection.SemesterSummary;
@@ -45,6 +46,7 @@ public class StatsActivity extends AppCompatActivity {
 
     private final List<SemesterSummary> semesterSummaries = new ArrayList<>();
     private List<ScheduleDetails> schedules = new ArrayList<>();
+    private List<ScheduleExceptionEntity> scheduleExceptions = new ArrayList<>();
     private boolean schedulesLoaded;
     private long selectedSemesterId;
 
@@ -67,6 +69,10 @@ public class StatsActivity extends AppCompatActivity {
         repository.observeAllScheduleDetails().observe(this, values -> {
             schedules = values == null ? new ArrayList<>() : values;
             schedulesLoaded = true;
+            renderStatistics();
+        });
+        repository.observeAllScheduleExceptions().observe(this, values -> {
+            scheduleExceptions = values == null ? new ArrayList<>() : values;
             renderStatistics();
         });
     }
@@ -152,7 +158,7 @@ public class StatsActivity extends AppCompatActivity {
         btnFilterRange.setText(formatSemesterRange(semester));
 
         SemesterStatisticsCalculator.Statistics statistics = SemesterStatisticsCalculator.calculate(
-                semester, selected.subjectCount, schedules);
+                semester, selected.subjectCount, schedules, scheduleExceptions);
         tvKpiSubjects.setText(String.valueOf(statistics.subjectCount));
         tvKpiClassesPerWeek.setText(String.valueOf(statistics.classesPerWeek));
         tvKpiHoursPerWeek.setText(formatHours(statistics.weeklyMinutes));
@@ -226,7 +232,7 @@ public class StatsActivity extends AppCompatActivity {
         long maxMinutes = 0L;
         for (SemesterSummary summary : semesterSummaries) {
             SemesterStatisticsCalculator.Statistics stats = SemesterStatisticsCalculator.calculate(
-                    summary.semester, summary.subjectCount, schedules);
+                    summary.semester, summary.subjectCount, schedules, scheduleExceptions);
             volumes.add(stats);
             maxMinutes = Math.max(maxMinutes, stats.totalSemesterMinutes);
         }

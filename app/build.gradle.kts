@@ -45,6 +45,9 @@ dependencies {
     implementation(libs.material)
     implementation(libs.room.runtime)
     implementation(libs.lifecycle.livedata)
+    implementation("com.google.code.gson:gson:2.11.0") {
+        exclude(group = "com.google.errorprone", module = "error_prone_annotations")
+    }
     annotationProcessor(libs.room.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.room.testing)
