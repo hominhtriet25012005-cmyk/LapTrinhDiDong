@@ -8,11 +8,12 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatDelegate;
 import androidx.fragment.app.Fragment;
 
 import com.example.demo.MainActivity;
 import com.example.demo.R;
+import com.example.demo.settings.AppSettings;
+import com.example.demo.settings.WeekSettings;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 public class SettingsFragment extends Fragment {
@@ -33,20 +34,44 @@ public class SettingsFragment extends Fragment {
         switchDarkMode = view.findViewById(R.id.switchDarkMode);
         tvDarkModeDesc = view.findViewById(R.id.tvDarkModeDesc);
 
-        boolean isDark = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES;
+        boolean isDark = AppSettings.isDarkModeEnabled(requireContext());
         switchDarkMode.setChecked(isDark);
         updateDarkDesc(isDark);
 
         switchDarkMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
             updateDarkDesc(isChecked);
-            if (isChecked) {
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-            } else {
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-            }
+            AppSettings.setDarkModeEnabled(requireContext(), isChecked);
         });
 
         // Navigation rows
+        TextView tvStartDayVal = view.findViewById(R.id.tvStartDayVal);
+        String[] daysOfWeekOptions = new String[]{"Thứ Hai", "Chủ Nhật"};
+        int firstDayOfWeek = WeekSettings.getFirstDayOfWeek(requireContext());
+        if (tvStartDayVal != null) {
+            tvStartDayVal.setText(firstDayOfWeek == WeekSettings.SUNDAY
+                    ? daysOfWeekOptions[1] : daysOfWeekOptions[0]);
+        }
+        view.findViewById(R.id.rowStartDay).setOnClickListener(v -> {
+            int checkedItem = WeekSettings.getFirstDayOfWeek(requireContext())
+                    == WeekSettings.SUNDAY ? 1 : 0;
+            new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.settings_start_day)
+                    .setSingleChoiceItems(daysOfWeekOptions, checkedItem, (dialog, which) -> {
+                        int selectedFirstDay = which == 1
+                                ? WeekSettings.SUNDAY : WeekSettings.MONDAY;
+                        WeekSettings.setFirstDayOfWeek(requireContext(), selectedFirstDay);
+                        if (tvStartDayVal != null) {
+                            tvStartDayVal.setText(daysOfWeekOptions[which]);
+                        }
+                        android.widget.Toast.makeText(requireContext(),
+                                "Đã đổi ngày đầu tuần: " + daysOfWeekOptions[which],
+                                android.widget.Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+                    })
+                    .setNegativeButton(R.string.action_cancel, null)
+                    .show();
+        });
+
         view.findViewById(R.id.rowNotifications).setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
                 ((MainActivity) getActivity()).openNotifications();

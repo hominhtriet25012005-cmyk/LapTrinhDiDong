@@ -403,8 +403,9 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Status Normal Card (Green) -->
+            <!-- Status Card (Dynamic Normal / Cancelled / Rescheduled / Makeup) -->
             <LinearLayout
+                android:id="@+id/layoutStatusCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
@@ -414,6 +415,7 @@
                 android:padding="14dp">
 
                 <ImageView
+                    android:id="@+id/ivStatusIcon"
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:contentDescription="@null"
@@ -421,12 +423,14 @@
                     app:tint="@color/tag_green_text" />
 
                 <LinearLayout
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
+                    android:layout_weight="1"
                     android:orientation="vertical">
 
                     <TextView
+                        android:id="@+id/tvStatusTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/status_normal_title"
@@ -435,6 +439,7 @@
                         android:textStyle="bold" />
 
                     <TextView
+                        android:id="@+id/tvStatusDesc"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="1dp"
@@ -443,6 +448,83 @@
                         android:textSize="12sp" />
                 </LinearLayout>
             </LinearLayout>
+
+            <!-- Exception Management Section (Ngoại lệ buổi học) -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Ngoại lệ &amp; Buổi học riêng lẻ"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.App.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <!-- Button 1: Báo nghỉ / Hủy buổi học này -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCancelSession"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:text="Báo nghỉ / Hủy buổi học này"
+                        android:textColor="@color/tag_red_text"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="10dp"
+                        app:icon="@drawable/ic_warning"
+                        app:iconGravity="textStart"
+                        app:iconPadding="8dp"
+                        app:iconTint="@color/tag_red_text"
+                        app:strokeColor="@color/tag_red_text" />
+
+                    <!-- Button 2: Đổi lịch riêng lẻ buổi này -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRescheduleSession"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="8dp"
+                        android:text="Đổi lịch buổi này sang giờ khác"
+                        android:textColor="@color/tag_amber_text"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="10dp"
+                        app:icon="@drawable/ic_refresh"
+                        app:iconGravity="textStart"
+                        app:iconPadding="8dp"
+                        app:iconTint="@color/tag_amber_text"
+                        app:strokeColor="@color/tag_amber_text" />
+
+                    <!-- Button 3: Thêm buổi học bù -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAddMakeupSession"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="8dp"
+                        android:text="Thêm buổi học bù cho môn này"
+                        android:textColor="@color/primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="10dp"
+                        app:icon="@drawable/ic_plus"
+                        app:iconGravity="textStart"
+                        app:iconPadding="8dp"
+                        app:iconTint="@color/primary"
+                        app:strokeColor="@color/primary" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

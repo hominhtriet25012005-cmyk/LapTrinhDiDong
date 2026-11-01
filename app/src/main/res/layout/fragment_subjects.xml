@@ -159,7 +159,7 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <!-- Floating Action Button: + Thêm môn -->
+    <!-- Floating Action Button: Thêm môn -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/fabAddSubject"
         android:layout_width="wrap_content"

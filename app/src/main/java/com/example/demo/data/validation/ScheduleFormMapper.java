@@ -24,7 +24,7 @@ public final class ScheduleFormMapper {
 
     public static ClassSectionEntity toClassSection(Long id, long subjectId, String classCode,
                                                      String lecturer, String note) {
-        String normalizedCode = trim(classCode);
+        String normalizedCode = trim(classCode).toUpperCase(Locale.ROOT);
         if (subjectId <= 0) {
             throw new IllegalArgumentException("Vui lòng chọn môn học.");
         }

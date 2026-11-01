@@ -34,6 +34,15 @@ public class ScheduleFormMapperTest {
     }
 
     @Test
+    public void normalizesClassCodeIgnoringCaseAndSurroundingSpaces() {
+        ClassSectionEntity classSection = ScheduleFormMapper.toClassSection(
+                null, 5L, " cs101-02 ", " Dr. Nguyen ", " note ");
+
+        assertEquals("CS101-02", classSection.classCode);
+        assertEquals("Dr. Nguyen", classSection.lecturer);
+        assertEquals("note", classSection.note);
+    }
+    @Test
     public void convertsAfternoonAndMidnightTimesTo24HourMinutes() {
         ScheduleEntity schedule = ScheduleFormMapper.toSchedule(
                 null, 7L, 7, "01:15 PM", "11:45 PM", "", "01/04/2026", "31/05/2026", "");

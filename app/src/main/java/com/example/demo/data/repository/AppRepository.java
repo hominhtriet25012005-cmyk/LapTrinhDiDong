@@ -3,10 +3,12 @@ package com.example.demo.data.repository;
 import android.content.Context;
 
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.Transformations;
 
 import com.example.demo.data.local.AppDatabase;
 import com.example.demo.data.local.entity.ClassSectionEntity;
 import com.example.demo.data.local.entity.ScheduleEntity;
+import com.example.demo.data.local.entity.ScheduleExceptionEntity;
 import com.example.demo.data.local.entity.SemesterEntity;
 import com.example.demo.data.local.entity.SubjectEntity;
 import com.example.demo.data.local.projection.ScheduleDetails;
@@ -14,8 +16,14 @@ import com.example.demo.data.local.projection.SemesterSummary;
 import com.example.demo.data.local.relation.ClassSectionWithSchedules;
 import com.example.demo.data.local.relation.SemesterWithSubjects;
 import com.example.demo.data.local.relation.SubjectWithClassSections;
+import com.example.demo.data.model.ClassOccurrence;
+import com.example.demo.data.model.ScheduleResolver;
+import com.example.demo.data.model.ScheduleSnapshot;
+import com.example.demo.data.search.SearchFilters;
 import com.example.demo.data.validation.ScheduleValidator;
+import com.example.demo.notifications.NotificationScheduler;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,12 +37,18 @@ public final class AppRepository {
     private static volatile AppRepository instance;
 
     private final AppDatabase database;
+    private final Context appContext;
     private final ExecutorService writeExecutor;
     private final SchedulePersistence schedulePersistence;
+    private final ScheduleExceptionPersistence scheduleExceptionPersistence;
+    private final SubjectPersistence subjectPersistence;
 
     private AppRepository(Context context) {
-        database = AppDatabase.getInstance(context);
+        appContext = context.getApplicationContext();
+        database = AppDatabase.getInstance(appContext);
         schedulePersistence = new SchedulePersistence(database);
+        scheduleExceptionPersistence = new ScheduleExceptionPersistence(database);
+        subjectPersistence = new SubjectPersistence(database);
         writeExecutor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "personal-schedule-db");
             thread.setDaemon(true);
@@ -91,7 +105,13 @@ public final class AppRepository {
     }
 
     public Future<Integer> deleteSemester(SemesterEntity semester) {
-        return writeExecutor.submit(() -> database.semesterDao().delete(semester));
+        return writeExecutor.submit(() -> {
+            int deleted = database.semesterDao().delete(semester);
+            if (deleted > 0) {
+                syncNotifications();
+            }
+            return deleted;
+        });
     }
 
     public Future<Boolean> setCurrentSemester(long semesterId) {
@@ -111,11 +131,13 @@ public final class AppRepository {
     }
 
     public LiveData<List<SubjectEntity>> searchSubjects(long semesterId, String query) {
-        return database.subjectDao().search(semesterId, query == null ? "" : query.trim());
+        return Transformations.map(database.subjectDao().observeForSemester(semesterId),
+                subjects -> SearchFilters.filterSubjects(subjects, query));
     }
 
     public LiveData<List<SubjectEntity>> searchAllSubjects(String query) {
-        return database.subjectDao().searchAll(query == null ? "" : query.trim());
+        return Transformations.map(database.subjectDao().observeAll(),
+                subjects -> SearchFilters.filterSubjects(subjects, query));
     }
 
     public LiveData<SubjectWithClassSections> observeSubjectWithClassSections(long subjectId) {
@@ -123,15 +145,27 @@ public final class AppRepository {
     }
 
     public Future<Long> insertSubject(SubjectEntity subject) {
-        return writeExecutor.submit(() -> database.subjectDao().insert(subject));
+        return writeExecutor.submit(() -> subjectPersistence.insert(subject));
     }
 
     public Future<Integer> updateSubject(SubjectEntity subject) {
-        return writeExecutor.submit(() -> database.subjectDao().update(subject));
+        return writeExecutor.submit(() -> {
+            int updated = subjectPersistence.update(subject);
+            if (updated > 0) {
+                syncNotifications();
+            }
+            return updated;
+        });
     }
 
     public Future<Integer> deleteSubject(SubjectEntity subject) {
-        return writeExecutor.submit(() -> database.subjectDao().delete(subject));
+        return writeExecutor.submit(() -> {
+            int deleted = database.subjectDao().delete(subject);
+            if (deleted > 0) {
+                syncNotifications();
+            }
+            return deleted;
+        });
     }
 
     public LiveData<List<ClassSectionEntity>> observeClassSections(long subjectId) {
@@ -147,18 +181,29 @@ public final class AppRepository {
     }
 
     public Future<Long> insertClassSection(ClassSectionEntity classSection) {
-        return writeExecutor.submit(() -> schedulePersistence.saveClassSection(classSection));
+        return writeExecutor.submit(() -> {
+            long id = schedulePersistence.saveClassSection(classSection);
+            syncNotifications();
+            return id;
+        });
     }
 
     public Future<Integer> updateClassSection(ClassSectionEntity classSection) {
         return writeExecutor.submit(() -> {
             schedulePersistence.saveClassSection(classSection);
+            syncNotifications();
             return 1;
         });
     }
 
     public Future<Integer> deleteClassSection(ClassSectionEntity classSection) {
-        return writeExecutor.submit(() -> schedulePersistence.deleteClassSection(classSection));
+        return writeExecutor.submit(() -> {
+            int deleted = schedulePersistence.deleteClassSection(classSection);
+            if (deleted > 0) {
+                syncNotifications();
+            }
+            return deleted;
+        });
     }
 
     public LiveData<List<ScheduleEntity>> observeSchedules(long classSectionId) {
@@ -177,33 +222,114 @@ public final class AppRepository {
         return writeExecutor.submit(() -> database.scheduleDao().getAllDetails());
     }
 
+    /** Reads recurring rows and their exceptions atomically, then resolves one dated snapshot. */
+    public Future<ScheduleSnapshot> getScheduleSnapshot(LocalDate fromInclusive,
+                                                        LocalDate toInclusive) {
+        if (fromInclusive == null || toInclusive == null) {
+            throw new IllegalArgumentException("Ngày bắt đầu và kết thúc là bắt buộc.");
+        }
+        return writeExecutor.submit(() -> database.runInTransaction(() ->
+                ScheduleResolver.resolve(database.scheduleDao().getAllDetails(),
+                        database.scheduleExceptionDao().getAll(), fromInclusive, toInclusive)));
+    }
+
+    /** Searches resolved meetings by their actual date, day, room, subject and semester. */
+    public Future<List<ClassOccurrence>> searchScheduleOccurrences(
+            String query, long semesterId, int dayOfWeek, String roomQuery,
+            LocalDate fromInclusive, LocalDate toInclusive) {
+        if (fromInclusive == null || toInclusive == null) {
+            throw new IllegalArgumentException("Ngày bắt đầu và kết thúc là bắt buộc.");
+        }
+        return writeExecutor.submit(() -> database.runInTransaction(() -> {
+            ScheduleSnapshot snapshot = ScheduleResolver.resolve(
+                    database.scheduleDao().getAllDetails(),
+                    database.scheduleExceptionDao().getAll(), fromInclusive, toInclusive);
+            return SearchFilters.filterOccurrences(snapshot.occurrences, query, semesterId,
+                    dayOfWeek, roomQuery, fromInclusive.toEpochDay(), toInclusive.toEpochDay());
+        }));
+    }
+
     public LiveData<List<ScheduleDetails>> observeAllScheduleDetails() {
         return database.scheduleDao().observeAllDetails();
     }
 
     public LiveData<List<ScheduleDetails>> searchScheduleDetails(String query, long semesterId,
                                                                   int dayOfWeek, String roomQuery) {
-        return database.scheduleDao().searchDetails(
-                query == null ? "" : query.trim(),
-                semesterId,
-                dayOfWeek,
-                roomQuery == null ? "" : roomQuery.trim()
-        );
+        return searchScheduleDetails(query, semesterId, dayOfWeek, roomQuery, null, null);
+    }
+
+    public LiveData<List<ScheduleDetails>> searchScheduleDetails(String query, long semesterId,
+                                                                  int dayOfWeek, String roomQuery,
+                                                                  Long fromEpochDay,
+                                                                  Long toEpochDay) {
+        return Transformations.map(database.scheduleDao().observeAllDetails(),
+                schedules -> SearchFilters.filterScheduleDetails(
+                        schedules, query, semesterId, dayOfWeek, roomQuery,
+                        fromEpochDay, toEpochDay));
     }
 
     public LiveData<ScheduleDetails> observeScheduleDetails(long scheduleId) {
         return database.scheduleDao().observeDetailsById(scheduleId);
     }
 
+    public LiveData<List<ScheduleExceptionEntity>> observeScheduleExceptions(long scheduleId) {
+        return database.scheduleExceptionDao().observeForSchedule(scheduleId);
+    }
+
+    public Future<List<ScheduleExceptionEntity>> getScheduleExceptions(long scheduleId) {
+        return writeExecutor.submit(() -> database.scheduleExceptionDao().getForSchedule(scheduleId));
+    }
+
+    public Future<List<ScheduleExceptionEntity>> getAllScheduleExceptions() {
+        return writeExecutor.submit(() -> database.scheduleExceptionDao().getAll());
+    }
+
+    public LiveData<List<ScheduleExceptionEntity>> observeAllScheduleExceptions() {
+        return database.scheduleExceptionDao().observeAll();
+    }
+
+    public Future<Long> insertScheduleException(ScheduleExceptionEntity exception) {
+        return writeExecutor.submit(() -> {
+            long id = scheduleExceptionPersistence.insert(exception);
+            syncNotifications();
+            return id;
+        });
+    }
+
+    public Future<Integer> updateScheduleException(ScheduleExceptionEntity exception) {
+        return writeExecutor.submit(() -> {
+            int updated = scheduleExceptionPersistence.update(exception);
+            if (updated > 0) {
+                syncNotifications();
+            }
+            return updated;
+        });
+    }
+
+    public Future<Integer> deleteScheduleException(ScheduleExceptionEntity exception) {
+        return writeExecutor.submit(() -> {
+            int deleted = scheduleExceptionPersistence.delete(exception);
+            if (deleted > 0) {
+                syncNotifications();
+            }
+            return deleted;
+        });
+    }
+
     public Future<Long> insertSchedule(ScheduleEntity schedule) {
         validateSchedule(schedule);
-        return writeExecutor.submit(() -> schedulePersistence.saveSchedule(schedule));
+        return writeExecutor.submit(() -> {
+            long id = schedulePersistence.saveSchedule(schedule);
+            syncNotifications();
+            return id;
+        });
     }
 
     public Future<Integer> updateSchedule(ScheduleEntity schedule) {
         validateSchedule(schedule);
         return writeExecutor.submit(() -> {
             schedulePersistence.saveSchedule(schedule);
+            syncNotifications();
             return 1;
         });
     }
@@ -211,12 +337,25 @@ public final class AppRepository {
     public Future<Long> saveScheduleWithClassSection(ClassSectionEntity classSection,
                                                      ScheduleEntity schedule) {
         validateSchedule(schedule);
-        return writeExecutor.submit(() ->
-                schedulePersistence.saveScheduleWithClassSection(classSection, schedule));
+        return writeExecutor.submit(() -> {
+            long id = schedulePersistence.saveScheduleWithClassSection(classSection, schedule);
+            syncNotifications();
+            return id;
+        });
     }
 
     public Future<Integer> deleteSchedule(ScheduleEntity schedule) {
-        return writeExecutor.submit(() -> database.scheduleDao().delete(schedule));
+        return writeExecutor.submit(() -> {
+            int deleted = database.scheduleDao().delete(schedule);
+            if (deleted > 0) {
+                syncNotifications();
+            }
+            return deleted;
+        });
+    }
+
+    private void syncNotifications() {
+        NotificationScheduler.syncAll(appContext);
     }
 
     private static void validateSchedule(ScheduleEntity schedule) {

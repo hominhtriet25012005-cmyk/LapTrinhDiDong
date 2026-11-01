@@ -59,7 +59,7 @@
     <string name="label_today">Hôm nay</string>
     <string name="classes_count_format">%1$d buổi học</string>
     <string name="empty_schedules">Chưa có lịch học trong khoảng thời gian này.</string>
-    <string name="action_add_schedule">+ Thêm lịch</string>
+    <string name="action_add_schedule">Thêm lịch</string>
     <string name="schedule_subject_class_format">%1$s · %2$s</string>
     <string name="schedule_week_format">Tuần %1$s – %2$s</string>
     <string name="schedule_month_format">Tháng %1$s</string>
@@ -80,7 +80,7 @@
     <string name="subject_credits_lecturer_format">%1$d tín chỉ · %2$s</string>
     <string name="subject_credits_format">%1$d tín chỉ</string>
     <string name="semester_label_format">%1$s · %2$s</string>
-    <string name="action_add_subject">+ Thêm môn</string>
+    <string name="action_add_subject">Thêm môn</string>
 
     <!-- Detail Screen -->
     <string name="title_schedule_detail">Chi tiết lịch học</string>
@@ -106,6 +106,7 @@
     <string name="msg_delete_schedule_success">Đã xóa lịch học.</string>
     <string name="error_schedule_not_found">Không tìm thấy lịch học này.</string>
     <string name="error_schedule_save">Không thể lưu lịch học. Vui lòng thử lại.</string>
+    <string name="title_conflict_warning">Cảnh báo trùng lịch học</string>
     <string name="error_schedule_conflict">Lịch học bị trùng với một buổi học khác trong cùng khoảng thời gian.</string>
     <string name="error_schedule_required">Hãy chọn môn, lớp học phần, thứ, giờ và khoảng ngày hợp lệ.</string>
     <string name="error_schedule_no_subjects">Chưa có môn học. Hãy tạo môn học trước khi thêm lịch.</string>
@@ -159,6 +160,8 @@
     <string name="field_credits">Số tín chỉ</string>
     <string name="field_semester">Học kỳ *</string>
     <string name="field_semester_name">Tên học kỳ *</string>
+    <string name="field_academic_year">Năm học *</string>
+    <string name="hint_academic_year">Ví dụ: 2025-2026</string>
     <string name="field_set_current_semester">Đặt làm học kỳ hiện tại</string>
     <string name="field_set_current_semester_desc">Học kỳ này sẽ được dùng làm mặc định.</string>
     <string name="field_notes">Ghi chú</string>
@@ -168,8 +171,8 @@
 
     <!-- Semesters Screen -->
     <string name="title_semesters">Quản lý học kỳ</string>
-    <string name="empty_semesters">Chưa có học kỳ nào.\nNhấn “+ Thêm học kỳ” để bắt đầu.</string>
-    <string name="action_add_semester">+ Thêm học kỳ</string>
+    <string name="empty_semesters">Chưa có học kỳ nào.\nNhấn “Thêm học kỳ” để bắt đầu.</string>
+    <string name="action_add_semester">Thêm học kỳ</string>
     <string name="label_current_semester">Hiện tại</string>
 
     <!-- Stats Screen -->
@@ -223,8 +226,6 @@
     <string name="settings_dark_mode">Giao diện tối</string>
     <string name="settings_dark_mode_active">Đang sử dụng chế độ tối</string>
     <string name="settings_light_mode_active">Đang sử dụng chế độ sáng</string>
-    <string name="settings_theme">Chủ đề</string>
-    <string name="settings_theme_desc">Sáng · Theo lựa chọn của bạn</string>
     <string name="settings_start_day">Ngày đầu tuần</string>
     <string name="settings_start_day_val">Thứ Hai</string>
     <string name="settings_group_data">Dữ liệu &amp; tiện ích</string>
@@ -253,13 +254,13 @@
     <string name="notification_room_unknown">chưa cập nhật</string>
     <string name="notification_summary_title">Lịch học hôm nay</string>
     <string name="notification_summary_empty">Hôm nay bạn không có buổi học.</string>
-    <string name="notification_summary_body">Hôm nay có %1$d buổi. Buổi đầu: %2$s — %3$s, lớp %4$s.</string>
+    <string name="notification_summary_body">Hôm nay có %1$d buổi:\n%2$s</string>
     <string name="notification_reminders_enabled">Đã bật nhắc trước 24 giờ cho các lịch học.</string>
     <string name="notification_reminders_disabled">Đã tắt nhắc trước 24 giờ.</string>
     <string name="notification_summary_enabled">Đã bật tóm tắt lịch hằng ngày.</string>
     <string name="notification_summary_disabled">Đã tắt tóm tắt lịch hằng ngày.</string>
     <string name="notif_reminder_24h">Nhắc trước 24 giờ</string>
-    <string name="notif_reminder_24h_desc">Nhận thông báo một ngày trước buổi học.</string>
+    <string name="notif_reminder_24h_desc">Nhận thông báo trước buổi học; Android có thể trì hoãn khi tiết kiệm pin.</string>
     <string name="notif_daily_summary">Tóm tắt lịch hằng ngày</string>
     <string name="notif_daily_summary_desc">Xem các buổi học trong ngày vào buổi sáng.</string>
     <string name="notif_summary_time">Giờ gửi tóm tắt</string>

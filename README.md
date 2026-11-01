@@ -8,8 +8,8 @@
 |---|---|
 | Nền tảng | Android Studio, Java 11, XML Layout |
 | UI | Material Design 3; giao diện hiện tại được dựng theo Figma |
-| Lưu trữ dự kiến | Room trên SQLite |
-| Thông báo dự kiến | Android Notifications có âm thanh |
+| Lưu trữ | Room trên SQLite (database v2; có migration v1→v2) |
+| Thông báo | Android Notifications có âm thanh; nhắc từ occurrence lịch đã phân giải |
 | Xuất dữ liệu | PDF |
 | Package / applicationId | `com.example.demo` (giữ nguyên) |
 | SDK | minSdk 26, compileSdk 37, targetSdk 37 |
@@ -17,7 +17,7 @@
 
 ## Trạng thái hiện tại
 
-**Đang ở giai đoạn 9 — Xuất PDF.** Room là nguồn dữ liệu thật cho học kỳ, môn học, lớp học phần và lịch lặp; Trang chủ, thời khóa biểu, Tra cứu, Thống kê và thông báo đã nối dữ liệu thật. Giai đoạn 9 đã có chọn học kỳ/phạm vi, mở trình chọn nơi lưu Android và kết xuất PDF nhiều trang. Build và 39 unit test pass; ADB daemon hiện không khởi động được nên luồng SAF/PDF, instrumentation và smoke test trên thiết bị còn cần xác nhận.
+**Roadmap giao diện/chức năng chính đã đến giai đoạn 9 — Xuất PDF; roadmap backend riêng theo [check.md](check.md) đã chạy Giai đoạn 9 — Tích hợp/hồi quy.** Full unit suite và APK build đạt; Room instrumentation/runtime vẫn chờ ADB hoạt động. Room là nguồn dữ liệu thật cho học kỳ, môn học, lớp và lịch; notification backend phân giải buổi lặp cùng ngoại lệ hủy/đổi/học bù. Backup/restore có JSON version 1 và API bất đồng bộ nhận SAF `Uri` nhưng màn hình chưa nối. Backend Excel tạo workbook lịch và môn/lớp, nhưng màn hình chưa nối exporter. `SearchActivity` hiện vẫn tìm lịch lặp; occurrence search API đã có nhưng chưa được nối vào màn hình.
 
 ### Những phần đã có
 
@@ -30,22 +30,31 @@
 - Thời khóa biểu theo ngày/tuần/tháng lấy từ Room; lịch chỉ hiện nếu có ít nhất một lần học trong khoảng ngày đang xem.
 - Kiểm tra giờ/ngày hợp lệ và chặn lịch trùng giờ cùng thứ khi có giao nhau thực tế trong ngày áp dụng.
 - Trang chủ lấy lịch hôm nay/tuần từ Room, chỉ rõ buổi đang diễn ra hoặc sắp tới, số buổi/số giờ, số môn của học kỳ hiện tại và khoảng trống giữa các buổi.
-- Tra cứu thời khóa biểu lấy dữ liệu thật từ Room, tìm theo tên/mã môn, mã lớp và phòng; lọc kết hợp theo học kỳ, thứ trong tuần và phòng.
+- Tra cứu thời khóa biểu lấy dữ liệu thật từ Room, tìm theo tên/mã môn, mã lớp và phòng; lọc kết hợp theo học kỳ, thứ trong tuần và phòng. Backend có API tìm occurrence thực tế, nhưng màn hình hiện vẫn hiển thị lịch lặp vì chưa có bộ chọn khoảng ngày.
 - Thống kê theo học kỳ lấy môn học và lịch từ Room; KPI, biểu đồ theo thứ và so sánh khối lượng giữa các học kỳ được tính từ số lần học thực tế trong khoảng ngày áp dụng.
-- Nhắc lịch và tóm tắt hằng ngày dùng lựa chọn lưu bền vững, Android notification channel có âm thanh hệ thống và AlarmManager; quyền Android 13+ được xin qua hộp thoại runtime thật.
+- Nhắc lịch lấy buổi học thực tế từ Room, bỏ buổi hủy và áp dụng ngày/giờ/phòng mới cho buổi đổi hoặc học bù; bản tin hằng ngày liệt kê tất cả buổi với giờ và phòng. Alarm dùng chế độ Android không chính xác để không yêu cầu quyền exact-alarm đặc biệt.
+- Backup/restore backend đóng gói học kỳ, môn, lớp, lịch và ngoại lệ vào JSON có version; kiểm tra giới hạn/quan hệ/dữ liệu trước restore và thay toàn bộ trong một Room transaction. Sau restore thành công, đồng bộ lại notification.
+- Backend Excel tạo XLSX từ cùng occurrence/range với PDF, có phạm vi ngày/tuần/tháng/học kỳ; workbook môn học có sheet lớp học phần riêng. Màn hình Export chưa nối API nên vẫn báo Excel chưa hỗ trợ.
 
 ### Những phần cần triển khai
 
-- Kết nối dữ liệu thật xuyên suốt các màn hình còn lại.
-- Xác nhận trực tiếp trên emulator/device: cấp/từ chối quyền, chuông báo, hủy/cập nhật alarm và khôi phục sau reboot.
+- Nối các hộp thoại ngoại lệ lịch trên giao diện với API Room đã có ở backend.
+- Xác nhận trực tiếp trên emulator/device: cấp/từ chối quyền, chuông báo, hủy/cập nhật alarm, summary và khôi phục sau reboot/đổi giờ.
 - Kiểm thử trực tiếp việc tạo/lưu PDF thật qua SAF trên emulator/device.
+- Nối lựa chọn Excel với exporter qua SAF và mở thử tệp bằng ứng dụng bảng tính.
+- Nối màn hình sao lưu/khôi phục với `BackupManager` và Storage Access Framework; sau đó smoke test file thật và notification trên emulator/device.
+- Khi thiết kế bộ chọn ngày cho màn hình tìm kiếm, nối `SearchActivity` sang API occurrence để kết quả phản ánh buổi hủy/đổi/học bù.
+- Chạy Room migration/backup instrumentation và kiểm tra notification runtime trên emulator/device khi ADB hoạt động.
 - Kiểm thử theo module và kiểm thử luồng demo tích hợp.
 
 ### Ghi chú build và kiểm thử
 
-- Xác minh mới nhất ngày 22/10/2026: `testDebugUnitTest`, `assembleDebug` và `assembleDebugAndroidTest` đều thành công với Gradle 9.6.0, JDK 25.0.3; mã nguồn vẫn target Java 11.
-- 39 unit test chạy, 0 lỗi; 6 test mới của giai đoạn 9 bao phủ tuần/tháng, cắt phạm vi theo học kỳ, fallback ngày học kỳ và sinh các lần học lặp thật theo ngày áp dụng.
-- Room schema được sinh tại `app/schemas/com.example.demo.data.local.AppDatabase/1.json`.
+- Xác minh giai đoạn PDF ngày 22/10/2026: `testDebugUnitTest`, `assembleDebug` và `assembleDebugAndroidTest` thành công với Gradle 9.6.0/JDK 25.0.3; 39 unit test đạt.
+- Xác minh backend thông báo ngày 01/11/2026: JDK 25 biên dịch test mục tiêu (5/5 đạt); Gradle 9.6.0 `:app:testDebugUnitTest --tests com.example.demo.notifications.ScheduleReminderPlannerTest` và `:app:assembleDebug` thành công.
+- Giai đoạn backend 7 ngày 01/11/2026: JSON backup giới hạn 5 MiB và có version; snapshot năm bảng trong transaction; validate dữ liệu/FK/ID; restore atomic; `BackupManager` đọc/ghi content `Uri` ngoài main thread và gọi đồng bộ notification sau restore. `:app:testDebugUnitTest` đạt 93/93; `:app:assembleDebug` và `:app:assembleDebugAndroidTest` thành công. Room instrumentation đã biên dịch nhưng chưa thực thi vì `adb devices` báo `could not read ok from ADB Server`; màn hình UI/SAF và smoke test notification vẫn còn.
+- Giai đoạn backend 8 ngày 01/11/2026: thêm `ScheduleExcelExporter` tạo XLSX OpenXML không thêm thư viện; lịch theo ngày/tuần/tháng/học kỳ và môn/lớp theo học kỳ. `:app:testDebugUnitTest` đạt 100/100; `:app:assembleDebug` và `:app:assembleDebugAndroidTest` thành công. Test đã mở ZIP và parse XML; chưa kiểm chứng bằng Excel/LibreOffice vì không có ứng dụng đó trên máy. UI/SAF chưa nối.
+- Giai đoạn backend 9 ngày 01/11/2026: mở rộng regression test dùng cùng occurrence cho dashboard, thống kê, search API, PDF range, Excel, notification planner/summary và backup JSON round-trip; migration test xác nhận Room version 2 sau v1→v2. `:app:testDebugUnitTest` đạt 100/100; `:app:assembleDebug` và `:app:assembleDebugAndroidTest` thành công; `git diff --check` đạt. `adb devices` thất bại (`could not read ok from ADB Server`), nên Room instrumentation và runtime smoke test chưa chạy. `SearchActivity` vẫn dùng lịch lặp; UI không đổi.
+- Room schema v1→v2 được sinh tại `app/schemas/com.example.demo.data.local.AppDatabase/2.json`; instrumentation migration chưa chạy.
 - `assembleDebugAndroidTest` đã biên dịch/đóng gói thành công 16 Room instrumentation test (cùng 1 test mẫu), bao gồm test tải học kỳ bằng ID. Chúng **chưa được thực thi** trên emulator/device; `adb.exe` có trong Android SDK nhưng daemon lỗi `could not read ok from ADB Server`, nên tương tác SQLite và smoke test giao diện vẫn cần xác nhận.
 - Giai đoạn 6: `testDebugUnitTest`, `assembleDebug` và `assembleDebugAndroidTest` đều thành công; 26 unit test pass. Hai Room instrumentation test mới kiểm tra tìm theo mã/tên/lớp/phòng và giao bộ lọc học kỳ/thứ/phòng đã compile nhưng chưa chạy trên thiết bị.
 - Không redesign giao diện Figma; form chỉ bỏ dữ liệu điền sẵn khỏi runtime, có trạng thái rỗng khi chưa có học kỳ, và dùng menu toolbar sẵn có để đặt thao tác xóa.
@@ -64,7 +73,7 @@
 | 5 | Trang chủ, ngày/tuần và thời gian trống | Dữ liệu hôm nay/tuần, lớp tiếp theo, KPI cơ bản, khoảng trống lịch | [~] Build + 26 unit test pass; smoke test thiết bị còn chờ |
 | 6 | Tra cứu | Tìm theo môn, mã, lớp, phòng; lọc học kỳ và thứ trong tuần | [~] Đã nối Room; build/unit pass, instrumentation chờ thiết bị |
 | 7 | Thống kê | KPI và biểu đồ tính từ dữ liệu của học kỳ | [~] Đã nối Room; unit/build pass, instrumentation và smoke test chờ thiết bị |
-| 8 | Thông báo có âm thanh | Quyền thông báo, channel, lịch nhắc, cập nhật/hủy và khôi phục sau reboot | [~] Build + 33 unit test pass; instrumentation/smoke test chờ thiết bị |
+| 8 | Thông báo có âm thanh | Quyền thông báo, channel, nhắc occurrence thực tế, cập nhật/hủy và khôi phục sau reboot | [~] Stage6 backend: 5 test mục tiêu + assembleDebug pass; instrumentation/smoke test chờ thiết bị |
 | 9 | Xuất PDF | Chọn học kỳ/phạm vi, tạo PDF nhiều trang và lưu qua Storage Access Framework | [~] Build + 39 unit test pass; instrumentation compile, SAF/PDF smoke test chờ thiết bị |
 | 10 | Hoàn thiện và kiểm thử demo | Bỏ dữ liệu mẫu runtime, xử lý trạng thái rỗng/lỗi, kiểm thử tích hợp và APK cuối | [ ] Chưa bắt đầu |
 
@@ -96,8 +105,8 @@ Quy ước dự kiến: ngày dùng `epochDay`, giờ dùng số phút từ 00:0
 
 - `SemestersActivity` quan sát Room LiveData và hiển thị học kỳ cùng số môn đếm từ truy vấn SQLite; trạng thái rỗng hướng dẫn tạo học kỳ đầu tiên.
 - Form hỗ trợ tạo/sửa/xóa có xác nhận; thao tác chạy nền qua `AppRepository`. Chỉnh sửa truyền ID và nạp lại dữ liệu từ database, không truyền model giả qua Intent.
-- Kiểm tra tên bắt buộc, ngày định dạng nghiêm ngặt `dd/MM/yyyy`, và ngày kết thúc không trước ngày bắt đầu. Ngày có thể bỏ trống.
-- Form Figma không có ô nhập năm học, nên `academicYear` được suy ra theo năm của ngày bắt đầu (ví dụ `2026–2027`); không thêm trường mới làm đổi bố cục.
+- Kiểm tra tên và năm học bắt buộc; năm học phải theo dạng hai năm liên tiếp (`YYYY-YYYY`), ngày theo định dạng nghiêm ngặt `dd/MM/yyyy`, và ngày kết thúc không trước ngày bắt đầu. Ngày có thể bỏ trống.
+- Form có trường nhập năm học độc lập với ngày bắt đầu/kết thúc (ví dụ học kỳ bắt đầu năm 2026 vẫn có thể thuộc `2025–2026`); dữ liệu được chuẩn hóa thành `YYYY–YYYY` và danh sách ưu tiên sắp xếp theo năm học mới nhất. Cột `academicYear` đã có trong Room nên thay đổi này không cần migration.
 - Instrumentation test bổ sung kiểm tra cập nhật học kỳ hiện tại và số môn trong summary; source test đã biên dịch nhưng cần emulator/device để thực thi.
 
 ### Giai đoạn 3 — Quản lý môn học
@@ -146,10 +155,10 @@ Quy ước dự kiến: ngày dùng `epochDay`, giờ dùng số phút từ 00:0
 
 - Giữ nguyên layout Figma của `NotificationsActivity`; xin `POST_NOTIFICATIONS` thật trên Android 13+, hiển thị trạng thái theo quyền hệ thống, đồng thời mở cài đặt ứng dụng nếu quyền/channel đang bị tắt.
 - Tạo notification channel mức ưu tiên cao với âm thanh mặc định của hệ thống; âm thanh/vibrate tiếp tục chịu quyền điều khiển của người dùng trong Android Settings.
-- Hai switch và giờ tóm tắt được lưu trong SharedPreferences. Switch nhắc trước 24 giờ áp dụng cho lịch trong Room; `notificationEnabled` đồng bộ với trạng thái toàn cục. Bản tóm tắt hằng ngày liệt kê số buổi thật trong Room và buổi đầu tiên, kể cả trạng thái ngày không có lịch.
-- Alarm cho từng lịch được tính theo thứ ISO, khoảng ngày áp dụng, giờ địa phương và `reminderMinutesBefore`; sau mỗi lần nhắc sẽ tự lên lần học kế tiếp. Thêm/sửa/xóa lịch cập nhật lại alarm; các xóa dây chuyền được reconcile khi ứng dụng mở lại.
-- Dùng `AlarmManager.setAndAllowWhileIdle()` để không đòi quyền “Báo thức chính xác”; Android có thể trì hoãn alarm tùy Doze/tiết kiệm pin. Receiver khôi phục lịch sau reboot, cập nhật ứng dụng và thay đổi ngày/giờ/múi giờ.
-- TDD thêm 3 unit test cho lần nhắc kế tiếp, bỏ qua mốc đã qua, ngày bắt đầu/kết thúc và tuần kế tiếp. Bổ sung Room instrumentation test kiểm tra cập nhật trạng thái nhắc hàng loạt. `testDebugUnitTest`, `assembleDebug`, `assembleDebugAndroidTest` đều pass; 33/33 unit test pass và 15 Room test compile. Không có `adb`/emulator khả dụng trong môi trường hiện tại nên instrumentation chưa chạy, chưa kiểm tra hộp thoại quyền, âm thanh và reboot thực tế.
+- Hai switch và giờ tóm tắt được lưu trong SharedPreferences. Trạng thái toàn cục vẫn là công tắc chính, còn `notificationEnabled` của từng lịch tiếp tục được kiểm tra. Buổi bù kế thừa số phút nhắc của lịch gốc (mặc định 1.440 phút).
+- Alarm được chọn từ `ScheduleSnapshot` mà `ScheduleResolver` tạo trong Room transaction; buổi hủy bị bỏ qua, buổi đổi/học bù dùng ngày, giờ và phòng hiệu lực. Khi alarm đến, dữ liệu được phân giải lại trước khi hiện thông báo; repository đồng bộ sau ghi lịch/ngoại lệ và xóa dữ liệu cha.
+- Bản tóm tắt lấy lịch của đúng ngày và liệt kê mọi buổi với tên môn, giờ bắt đầu/kết thúc, phòng. Alarm vẫn dùng `AlarmManager.setAndAllowWhileIdle()` dạng không chính xác, không xin quyền exact-alarm đặc biệt; Android có thể trì hoãn khi Doze/tiết kiệm pin. Receiver hiện có phục hồi sau reboot và đổi ngày/giờ/múi giờ.
+- Stage6 thêm 5 unit test mục tiêu cho hủy, buổi đổi, học bù, trạng thái nhắc, reminder đã quá hạn và nội dung summary nhiều buổi. `:app:testDebugUnitTest --tests com.example.demo.notifications.ScheduleReminderPlannerTest` và `:app:assembleDebug` thành công; notification instrumentation/device test chưa chạy. Backend Giai đoạn 7 đã gọi `NotificationScheduler.syncAll()` sau khi restore thành công; cần nối UI và smoke test trên thiết bị.
 - Không đổi schema Room, package name, ngôn ngữ hay bố cục XML. Cài đặt thông báo dùng SharedPreferences; các trường nhắc hiện hữu trong `ScheduleEntity` tiếp tục được dùng.
 
 ### Giai đoạn 9 — Xuất thời khóa biểu PDF
@@ -203,4 +212,8 @@ Lệnh build/test trên Windows:
 | 22/10/2026 | 7 — Thống kê | Nối KPI, biểu đồ theo thứ và khối lượng từng học kỳ với Room; tổng giờ tính theo các lần diễn ra thực tế. 30/30 unit test pass; app và APK AndroidTest build thành công; 14 Room instrumentation test compile nhưng chưa thực thi trên thiết bị. |
 | 22/10/2026 | 8 — Thông báo | Nối quyền runtime Android 13+, channel âm thanh, nhắc trước 24 giờ/tóm tắt hằng ngày, cập nhật alarm sau CRUD và phục hồi sau reboot/đổi giờ. 33/33 unit test pass; `assembleDebug` và `assembleDebugAndroidTest` thành công; 15 Room test compile, chưa chạy vì không có ADB/emulator. |
 | 22/10/2026 | 9 — Xuất PDF | Nối học kỳ/lịch Room với chọn tuần/tháng/toàn kỳ, xem trước dữ liệu thật và xuất bảng PDF A4 ngang phân trang qua Android SAF. 39/39 unit test pass; APK debug và AndroidTest build thành công; 16 Room test compile. SAF/PDF và instrumentation chưa smoke-test vì ADB daemon không khởi động. |
+| 01/11/2026 | Backend Giai đoạn 6 — Thông báo occurrence | Nhắc từ lịch đã phân giải, cập nhật theo sửa/xóa/ngoại lệ, summary liệt kê toàn bộ buổi trong ngày; test mục tiêu và debug build đạt. Kiểm tra runtime và instrumentation còn chờ thiết bị. |
+| 01/11/2026 | Backend Giai đoạn 7 — Backup/restore | JSON version 1, snapshot/restore nguyên tử cho năm bảng Room, validation, API bất đồng bộ qua SAF `Uri`, đồng bộ notification sau restore; 93/93 unit test và hai build APK đạt. Instrumentation compile nhưng ADB không khởi động; UI/SAF chưa nối. |
+| 01/11/2026 | Backend Giai đoạn 8 — Xuất Excel | XLSX OpenXML, lịch theo ngày/tuần/tháng/học kỳ và danh sách môn/lớp; 100/100 unit test, APK debug/AndroidTest đạt. Chưa mở thử bằng ứng dụng bảng tính; UI/SAF chưa nối. |
+| 01/11/2026 | Backend Giai đoạn 9 — Tích hợp/hồi quy | Shared-occurrence regression và backup round-trip test; 100/100 unit test, debug/AndroidTest build đạt. ADB daemon lỗi nên instrumentation migration/Room và runtime chưa chạy; SearchActivity vẫn chờ nối occurrence API. |
 

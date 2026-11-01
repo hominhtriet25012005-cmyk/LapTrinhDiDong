@@ -15,6 +15,8 @@ public class ScheduleItem implements Serializable {
     private String semester;
     private String note;
     private String appliedPeriod;
+    private String exceptionType = "normal"; // "normal", "cancelled", "rescheduled", "makeup"
+    private String exceptionNote = "";
 
     public ScheduleItem() {}
 
@@ -33,6 +35,17 @@ public class ScheduleItem implements Serializable {
         this.semester = semester;
         this.note = note;
         this.appliedPeriod = appliedPeriod;
+        this.exceptionType = "normal";
+        this.exceptionNote = "";
+    }
+
+    public ScheduleItem(String id, String subjectCode, String subjectName, String startTime,
+                        String endTime, String room, String lecturer, String dayOfWeek,
+                        String colorType, String semester, String note, String appliedPeriod,
+                        String exceptionType, String exceptionNote) {
+        this(id, subjectCode, subjectName, startTime, endTime, room, lecturer, dayOfWeek, colorType, semester, note, appliedPeriod);
+        this.exceptionType = exceptionType != null ? exceptionType : "normal";
+        this.exceptionNote = exceptionNote != null ? exceptionNote : "";
     }
 
     public String getId() { return id; }
@@ -70,4 +83,10 @@ public class ScheduleItem implements Serializable {
 
     public String getAppliedPeriod() { return appliedPeriod; }
     public void setAppliedPeriod(String appliedPeriod) { this.appliedPeriod = appliedPeriod; }
+
+    public String getExceptionType() { return exceptionType; }
+    public void setExceptionType(String exceptionType) { this.exceptionType = exceptionType; }
+
+    public String getExceptionNote() { return exceptionNote; }
+    public void setExceptionNote(String exceptionNote) { this.exceptionNote = exceptionNote; }
 }

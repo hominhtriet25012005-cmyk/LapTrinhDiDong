@@ -17,22 +17,22 @@ import java.util.List;
 
 @Dao
 public abstract class SemesterDao {
-    @Query("SELECT * FROM semesters ORDER BY startDateEpochDay DESC, id DESC")
+    @Query("SELECT * FROM semesters ORDER BY academicYear COLLATE NOCASE DESC, startDateEpochDay DESC, id DESC")
     public abstract List<SemesterEntity> getAll();
 
-    @Query("SELECT * FROM semesters ORDER BY startDateEpochDay DESC, id DESC")
+    @Query("SELECT * FROM semesters ORDER BY academicYear COLLATE NOCASE DESC, startDateEpochDay DESC, id DESC")
     public abstract LiveData<List<SemesterEntity>> observeAll();
 
     @Query("SELECT semesters.*, COUNT(subjects.id) AS subjectCount "
             + "FROM semesters LEFT JOIN subjects ON subjects.semesterId = semesters.id "
             + "GROUP BY semesters.id "
-            + "ORDER BY semesters.startDateEpochDay DESC, semesters.id DESC")
+            + "ORDER BY semesters.academicYear COLLATE NOCASE DESC, semesters.startDateEpochDay DESC, semesters.id DESC")
     public abstract LiveData<List<SemesterSummary>> observeSummaries();
 
     @Query("SELECT semesters.*, COUNT(subjects.id) AS subjectCount "
             + "FROM semesters LEFT JOIN subjects ON subjects.semesterId = semesters.id "
             + "GROUP BY semesters.id "
-            + "ORDER BY semesters.startDateEpochDay DESC, semesters.id DESC")
+            + "ORDER BY semesters.academicYear COLLATE NOCASE DESC, semesters.startDateEpochDay DESC, semesters.id DESC")
     public abstract List<SemesterSummary> getSummaries();
 
     @Query("SELECT * FROM semesters WHERE id = :semesterId LIMIT 1")
@@ -64,6 +64,9 @@ public abstract class SemesterDao {
 
     @Delete
     public abstract int delete(SemesterEntity semester);
+
+    @Query("DELETE FROM semesters")
+    public abstract void deleteAll();
 
     @Transaction
     @Query("SELECT * FROM semesters WHERE id = :semesterId LIMIT 1")

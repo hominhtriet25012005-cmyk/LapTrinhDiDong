@@ -18,9 +18,12 @@ import androidx.core.content.ContextCompat;
 import com.example.demo.R;
 import com.example.demo.data.export.ScheduleExportCalculator;
 import com.example.demo.data.export.SchedulePdfWriter;
+import com.example.demo.data.local.entity.ScheduleExceptionEntity;
 import com.example.demo.data.local.entity.SemesterEntity;
 import com.example.demo.data.local.projection.ScheduleDetails;
+import com.example.demo.data.model.ScheduleSnapshot;
 import com.example.demo.data.repository.AppRepository;
+import com.example.demo.settings.WeekSettings;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -64,6 +67,7 @@ public class ExportActivity extends AppCompatActivity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final List<SemesterEntity> semesterOptions = new ArrayList<>();
     private final List<ScheduleDetails> allScheduleDetails = new ArrayList<>();
+    private final List<ScheduleExceptionEntity> allScheduleExceptions = new ArrayList<>();
     private AppRepository repository;
     private ActivityResultLauncher<String> createPdfLauncher;
     private SemesterEntity selectedSemester;
@@ -189,10 +193,13 @@ public class ExportActivity extends AppCompatActivity {
         new Thread(() -> {
             try {
                 List<ScheduleDetails> details = repository.getAllScheduleDetails().get();
+                List<ScheduleExceptionEntity> exceptions = repository.getAllScheduleExceptions().get();
                 mainHandler.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     allScheduleDetails.clear();
                     if (details != null) allScheduleDetails.addAll(details);
+                    allScheduleExceptions.clear();
+                    if (exceptions != null) allScheduleExceptions.addAll(exceptions);
                     schedulesLoaded = true;
                     updateScopePreview();
                 });
@@ -224,7 +231,9 @@ public class ExportActivity extends AppCompatActivity {
         List<ScheduleDetails> semesterSchedules = schedulesForSelectedSemester(allScheduleDetails,
                 selectedSemester.id);
         ScheduleExportCalculator.DateRange range = ScheduleExportCalculator.resolveRange(
-                SCOPES[selectedScopeIndex], LocalDate.now(), selectedSemester, semesterSchedules);
+                SCOPES[selectedScopeIndex], LocalDate.now(), selectedSemester, semesterSchedules,
+                allScheduleExceptions,
+                WeekSettings.getFirstDayOfWeek(this));
         if (range.isEmpty()) {
             tvScopeDates.setText(R.string.export_preview_no_dates);
             tvScopeSummary.setText(R.string.export_preview_empty);
@@ -234,7 +243,7 @@ public class ExportActivity extends AppCompatActivity {
         List<ScheduleExportCalculator.Occurrence> occurrences;
         try {
             occurrences = ScheduleExportCalculator.occurrences(
-                    selectedSemester.id, semesterSchedules, range);
+                    selectedSemester.id, semesterSchedules, allScheduleExceptions, range);
         } catch (IllegalArgumentException exception) {
             tvScopeSummary.setText(R.string.export_preview_too_many);
             return;
@@ -266,6 +275,7 @@ public class ExportActivity extends AppCompatActivity {
 
         final long semesterId = selectedSemester == null ? restoredSemesterId : selectedSemester.id;
         final int scopeIndex = selectedScopeIndex;
+        final int firstDayOfWeek = WeekSettings.getFirstDayOfWeek(getApplicationContext());
         exporting = true;
         btnExport.setEnabled(false);
         btnExport.setText(R.string.export_working);
@@ -275,11 +285,16 @@ public class ExportActivity extends AppCompatActivity {
                 SemesterEntity semester = repository.getSemester(semesterId).get();
                 if (semester == null) throw new IOException("Không tìm thấy học kỳ đã chọn.");
                 List<ScheduleDetails> details = repository.getAllScheduleDetails().get();
+                List<ScheduleExceptionEntity> exceptions = repository.getAllScheduleExceptions().get();
                 List<ScheduleDetails> semesterSchedules = schedulesForSelectedSemester(details, semesterId);
                 ScheduleExportCalculator.DateRange range = ScheduleExportCalculator.resolveRange(
-                        SCOPES[scopeIndex], LocalDate.now(), semester, semesterSchedules);
+                        SCOPES[scopeIndex], LocalDate.now(), semester, semesterSchedules,
+                        exceptions, firstDayOfWeek);
+                ScheduleSnapshot snapshot = repository.getScheduleSnapshot(
+                        LocalDate.ofEpochDay(range.startEpochDay),
+                        LocalDate.ofEpochDay(range.endEpochDay)).get();
                 List<ScheduleExportCalculator.Occurrence> occurrences =
-                        ScheduleExportCalculator.occurrences(semesterId, semesterSchedules, range);
+                        ScheduleExportCalculator.occurrences(semesterId, snapshot, range);
                 OutputStream output = getContentResolver().openOutputStream(uri, "w");
                 if (output == null) throw new IOException("Không thể mở tệp đích.");
                 try (OutputStream stream = output) {

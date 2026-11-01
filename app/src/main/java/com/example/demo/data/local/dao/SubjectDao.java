@@ -34,6 +34,10 @@ public interface SubjectDao {
     @Query("SELECT * FROM subjects WHERE code LIKE '%' || :query || '%' COLLATE NOCASE OR name LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY name COLLATE NOCASE")
     LiveData<List<SubjectEntity>> searchAll(String query);
 
+    @Query("SELECT EXISTS(SELECT 1 FROM subjects WHERE semesterId = :semesterId "
+            + "AND UPPER(TRIM(code)) = UPPER(TRIM(:code)) AND id != :excludedId)")
+    boolean hasDuplicateCode(long semesterId, String code, long excludedId);
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     long insert(SubjectEntity subject);
 
@@ -42,6 +46,12 @@ public interface SubjectDao {
 
     @Delete
     int delete(SubjectEntity subject);
+
+    @Query("DELETE FROM subjects")
+    void deleteAll();
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    void insertAll(List<SubjectEntity> subjects);
 
     @Transaction
     @Query("SELECT * FROM subjects WHERE id = :subjectId LIMIT 1")
