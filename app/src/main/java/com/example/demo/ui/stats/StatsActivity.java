@@ -1,5 +1,6 @@
 package com.example.demo.ui.stats;
 
+import android.app.DatePickerDialog;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -27,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Calendar;
 
 public class StatsActivity extends AppCompatActivity {
 
@@ -49,6 +51,8 @@ public class StatsActivity extends AppCompatActivity {
     private List<ScheduleExceptionEntity> scheduleExceptions = new ArrayList<>();
     private boolean schedulesLoaded;
     private long selectedSemesterId;
+    private LocalDate selectedRangeStart;
+    private LocalDate selectedRangeEnd;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,9 +64,7 @@ public class StatsActivity extends AppCompatActivity {
 
         bindViews();
         btnFilterSemester.setOnClickListener(v -> showSemesterPicker());
-        // This pill displays the real date span of the selected semester; it is informational.
-        btnFilterRange.setClickable(false);
-        btnFilterRange.setFocusable(false);
+        btnFilterRange.setOnClickListener(v -> showDateRangePicker());
 
         AppRepository repository = AppRepository.getInstance(getApplicationContext());
         repository.observeSemesterSummaries().observe(this, this::onSemesterSummariesChanged);
@@ -111,8 +113,11 @@ public class StatsActivity extends AppCompatActivity {
         if (selected == null && !semesterSummaries.isEmpty()) {
             selected = chooseDefaultSemester();
             selectedSemesterId = selected.semester.id;
+            resetDateRange(selected.semester);
         } else if (selected == null) {
             selectedSemesterId = 0L;
+            selectedRangeStart = null;
+            selectedRangeEnd = null;
         }
         renderStatistics();
     }
@@ -135,7 +140,11 @@ public class StatsActivity extends AppCompatActivity {
                 .setTitle(R.string.stats_semester_picker_title)
                 .setSingleChoiceItems(labels, selectedPosition, (dialog, which) -> {
                     if (which >= 0 && which < semesterSummaries.size()) {
-                        selectedSemesterId = semesterSummaries.get(which).semester.id;
+                        SemesterEntity semester = semesterSummaries.get(which).semester;
+                        if (selectedSemesterId != semester.id) {
+                            selectedSemesterId = semester.id;
+                            resetDateRange(semester);
+                        }
                         renderStatistics();
                     }
                     dialog.dismiss();
@@ -153,12 +162,23 @@ public class StatsActivity extends AppCompatActivity {
         }
 
         SemesterEntity semester = selected.semester;
+        if (selectedRangeStart == null || selectedRangeEnd == null) {
+            resetDateRange(semester);
+        }
         btnFilterSemester.setEnabled(true);
         btnFilterSemester.setText(formatSemester(semester));
-        btnFilterRange.setText(formatSemesterRange(semester));
+        btnFilterRange.setEnabled(selectedRangeStart != null && selectedRangeEnd != null);
+        btnFilterRange.setText(selectedRangeStart == null || selectedRangeEnd == null
+                ? formatSemesterRange(semester)
+                : formatDateRange(selectedRangeStart, selectedRangeEnd));
 
-        SemesterStatisticsCalculator.Statistics statistics = SemesterStatisticsCalculator.calculate(
-                semester, selected.subjectCount, schedules, scheduleExceptions);
+        SemesterStatisticsCalculator.Statistics statistics = selectedRangeStart == null
+                || selectedRangeEnd == null
+                ? SemesterStatisticsCalculator.calculate(
+                        semester, selected.subjectCount, schedules, scheduleExceptions)
+                : SemesterStatisticsCalculator.calculate(
+                        semester, selected.subjectCount, schedules, scheduleExceptions,
+                        selectedRangeStart, selectedRangeEnd);
         tvKpiSubjects.setText(String.valueOf(statistics.subjectCount));
         tvKpiClassesPerWeek.setText(String.valueOf(statistics.classesPerWeek));
         tvKpiHoursPerWeek.setText(formatHours(statistics.weeklyMinutes));
@@ -182,6 +202,7 @@ public class StatsActivity extends AppCompatActivity {
 
     private void renderNoSemester() {
         btnFilterSemester.setEnabled(false);
+        btnFilterRange.setEnabled(false);
         btnFilterSemester.setText(R.string.stats_no_semester);
         btnFilterRange.setText(R.string.stats_full_semester_range);
         tvKpiSubjects.setText("0");
@@ -317,6 +338,147 @@ public class StatsActivity extends AppCompatActivity {
             return getString(R.string.stats_date_range_from, formatDate(start));
         }
         return getString(R.string.stats_date_range_format, formatDate(start), formatDate(end));
+    }
+
+    private void resetDateRange(SemesterEntity semester) {
+        LocalDate[] bounds = findSemesterDateBounds(semester);
+        selectedRangeStart = bounds == null ? null : bounds[0];
+        selectedRangeEnd = bounds == null ? null : bounds[1];
+    }
+
+    private LocalDate[] findSemesterDateBounds(SemesterEntity semester) {
+        if (semester == null) {
+            return null;
+        }
+        LocalDate start = dateFromEpochDay(semester.startDateEpochDay);
+        LocalDate end = dateFromEpochDay(semester.endDateEpochDay);
+        for (ScheduleDetails schedule : schedules) {
+            if (schedule == null || schedule.semesterId != semester.id) {
+                continue;
+            }
+            LocalDate scheduleStart = dateFromEpochDay(schedule.validFromEpochDay);
+            LocalDate scheduleEnd = dateFromEpochDay(schedule.validToEpochDay);
+            if (start == null || semester.startDateEpochDay == null) {
+                if (scheduleStart != null && (start == null || scheduleStart.isBefore(start))) {
+                    start = scheduleStart;
+                }
+            }
+            if (end == null || semester.endDateEpochDay == null) {
+                if (scheduleEnd != null && (end == null || scheduleEnd.isAfter(end))) {
+                    end = scheduleEnd;
+                }
+            }
+        }
+        for (ScheduleExceptionEntity exception : scheduleExceptions) {
+            if (exception == null || exception.replacementDateEpochDay == null) {
+                continue;
+            }
+            ScheduleDetails source = findSchedule(exception.scheduleId);
+            if (source == null || source.semesterId != semester.id) {
+                continue;
+            }
+            LocalDate replacementDate = dateFromEpochDay(exception.replacementDateEpochDay);
+            if (replacementDate == null) {
+                continue;
+            }
+            if (semester.startDateEpochDay == null
+                    && (start == null || replacementDate.isBefore(start))) {
+                start = replacementDate;
+            }
+            if (semester.endDateEpochDay == null
+                    && (end == null || replacementDate.isAfter(end))) {
+                end = replacementDate;
+            }
+        }
+        if (start == null || end == null || start.isAfter(end)) {
+            return null;
+        }
+        return new LocalDate[]{start, end};
+    }
+
+    private ScheduleDetails findSchedule(long scheduleId) {
+        for (ScheduleDetails schedule : schedules) {
+            if (schedule != null && schedule.scheduleId == scheduleId) {
+                return schedule;
+            }
+        }
+        return null;
+    }
+
+    private void showDateRangePicker() {
+        SemesterSummary selected = findSelectedSemester();
+        if (selected == null) {
+            return;
+        }
+        LocalDate[] bounds = findSemesterDateBounds(selected.semester);
+        if (bounds == null) {
+            return;
+        }
+        LocalDate initialStart = clamp(selectedRangeStart, bounds[0], bounds[1]);
+        LocalDate initialEnd = clamp(selectedRangeEnd, initialStart, bounds[1]);
+        showDatePicker(R.string.stats_start_date_picker_title, initialStart,
+                bounds[0], bounds[1], start -> {
+                    LocalDate endInitial = initialEnd.isBefore(start) ? start : initialEnd;
+                    showDatePicker(R.string.stats_end_date_picker_title, endInitial,
+                            start, bounds[1], end -> {
+                                selectedRangeStart = start;
+                                selectedRangeEnd = end;
+                                renderStatistics();
+                            });
+                });
+    }
+
+    private void showDatePicker(int titleRes, LocalDate initial, LocalDate minimum,
+                                LocalDate maximum, DateSelectedListener listener) {
+        DatePickerDialog dialog = new DatePickerDialog(this, (picker, year, month, day) ->
+                listener.onDateSelected(LocalDate.of(year, month + 1, day)),
+                initial.getYear(), initial.getMonthValue() - 1, initial.getDayOfMonth());
+        dialog.setTitle(titleRes);
+        dialog.getDatePicker().setMinDate(toPickerMillis(minimum));
+        dialog.getDatePicker().setMaxDate(toPickerMillis(maximum));
+        dialog.show();
+    }
+
+    private static LocalDate clamp(LocalDate value, LocalDate minimum, LocalDate maximum) {
+        if (value == null || value.isBefore(minimum)) {
+            return minimum;
+        }
+        return value.isAfter(maximum) ? maximum : value;
+    }
+
+    private static long toPickerMillis(LocalDate date) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.clear();
+        calendar.set(date.getYear(), date.getMonthValue() - 1, date.getDayOfMonth());
+        return calendar.getTimeInMillis();
+    }
+
+    private LocalDate dateFromEpochDay(Long epochDay) {
+        if (epochDay == null) {
+            return null;
+        }
+        try {
+            return LocalDate.ofEpochDay(epochDay);
+        } catch (RuntimeException exception) {
+            return null;
+        }
+    }
+
+    private LocalDate dateFromEpochDay(long epochDay) {
+        try {
+            return LocalDate.ofEpochDay(epochDay);
+        } catch (RuntimeException exception) {
+            return null;
+        }
+    }
+
+    private String formatDateRange(LocalDate start, LocalDate end) {
+        return getString(R.string.stats_date_range_format,
+                start.format(DATE_FORMAT), end.format(DATE_FORMAT));
+    }
+
+    private interface DateSelectedListener {
+        void onDateSelected(LocalDate date);
     }
 
     private String formatHours(long minutes) {

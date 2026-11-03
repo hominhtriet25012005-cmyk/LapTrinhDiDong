@@ -41,6 +41,25 @@ public class SemesterStatisticsCalculatorTest {
     }
 
     @Test
+    public void calculatesStatisticsForSelectedDateRangeWithinSemester() {
+        LocalDate semesterStart = LocalDate.of(2026, 10, 1);
+        LocalDate semesterEnd = LocalDate.of(2026, 12, 1);
+        SemesterEntity semester = semester(21L, "HK1", semesterStart, semesterEnd);
+        ScheduleDetails monday = schedule(21L, 1, 540, 600, semesterStart, semesterEnd);
+        ScheduleDetails wednesday = schedule(21L, 3, 600, 690, semesterStart, semesterEnd);
+
+        SemesterStatisticsCalculator.Statistics result = SemesterStatisticsCalculator.calculate(
+                semester, 2, Arrays.asList(monday, wednesday), Collections.emptyList(),
+                LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 11));
+
+        assertEquals(2, result.classesPerWeek);
+        assertEquals(150, result.weeklyMinutes);
+        assertEquals(150, result.totalSemesterMinutes);
+        assertEquals(1, result.classesByDay[0]);
+        assertEquals(1, result.classesByDay[2]);
+    }
+
+    @Test
     public void countsOnlyActualWeekdayOccurrencesWithinSemesterAndScheduleDates() {
         SemesterEntity semester = semester(2L, "Spring", LocalDate.of(2026, 3, 2),
                 LocalDate.of(2026, 3, 15));

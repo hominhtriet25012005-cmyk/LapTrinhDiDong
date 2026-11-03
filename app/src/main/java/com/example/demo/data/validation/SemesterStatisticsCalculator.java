@@ -83,6 +83,25 @@ public final class SemesterStatisticsCalculator {
         }
     }
 
+    /** Calculates the selected semester's statistics over a user-selected date interval. */
+    public static Statistics calculate(SemesterEntity semester, int subjectCount,
+                                       List<ScheduleDetails> schedules,
+                                       List<ScheduleExceptionEntity> exceptions,
+                                       LocalDate fromInclusive, LocalDate toInclusive) {
+        if (semester == null) {
+            throw new IllegalArgumentException("Semester must not be null.");
+        }
+        if (fromInclusive == null || toInclusive == null) {
+            throw new IllegalArgumentException("Ngày bắt đầu và kết thúc là bắt buộc.");
+        }
+        if (fromInclusive.isAfter(toInclusive)) {
+            return emptyStatistics(subjectCount);
+        }
+        ScheduleSnapshot snapshot = ScheduleResolver.resolve(
+                schedules, exceptions, fromInclusive, toInclusive);
+        return calculate(semester, subjectCount, snapshot);
+    }
+
     /** Calculates exact total hours and per-week averages from a shared snapshot. */
     public static Statistics calculate(SemesterEntity semester, int subjectCount,
                                        ScheduleSnapshot snapshot) {

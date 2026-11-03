@@ -185,6 +185,8 @@
     <string name="stats_date_range_format">%1$s – %2$s</string>
     <string name="stats_date_range_from">Từ %1$s</string>
     <string name="stats_date_range_until">Đến %1$s</string>
+    <string name="stats_start_date_picker_title">Chọn ngày bắt đầu thống kê</string>
+    <string name="stats_end_date_picker_title">Chọn ngày kết thúc thống kê</string>
     <string name="stats_no_semester_message">Chưa có học kỳ. Hãy tạo học kỳ để xem thống kê.</string>
     <string name="stats_no_schedule_message">Học kỳ này chưa có lịch học để thống kê.</string>
     <string name="stats_semester_volume_title">Khối lượng theo học kỳ</string>
